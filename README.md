@@ -89,6 +89,7 @@ python3 -m http.server 8000
    </a>
    ```
 4. 이 README의 게임 목록 표에도 한 줄 추가해 주세요.
+5. css/js를 추가·수정했다면 `node scripts/stamp-assets.js` 를 실행해요. 로컬 자산 주소의 `?v=` 를 파일 내용에 맞춥니다.
 
 ### 팁
 
@@ -101,3 +102,12 @@ python3 -m http.server 8000
 ## GitHub Pages 배포
 
 저장소 루트에 이 폴더의 내용을 그대로 푸시하고, **Settings → Pages**에서 `main` 브랜치의 `/ (root)`를 선택하면 끝이에요.
+
+Pages는 CSS·JS를 최대 10분(`Cache-Control: max-age=600`) 저장합니다. 새 HTML이 예전 `style.css` 주소와 만나면 탭이 스타일 없는 버튼으로 보일 수 있어요. 그래서 각 페이지의 로컬 css/js(`assets/`, `words.js`, `questions.js`, `logic.js` 등)는 `?v=` 와 파일 내용의 짧은 해시를 달고 있습니다. 내용이 바뀐 파일만 주소가 바뀝니다.
+
+```bash
+node scripts/stamp-assets.js          # HTML의 ?v= 를 다시 찍기
+node scripts/stamp-assets.js --check  # 어긋나면 실패 (파일은 그대로)
+```
+
+css/js를 고친 커밋에는 스탬프를 같이 넣어 주세요. `.github/workflows/asset-versions.yml` 은 PR과 `main` 푸시에서 그것만 확인합니다. 커밋을 만들거나 Pages 배포를 건드리지 않아요.
