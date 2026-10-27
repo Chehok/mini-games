@@ -6,7 +6,7 @@
 
 ## 게임 목록
 
-허브(`index.html`)는 **1인용 / 다인용 / 진행 도구** 세 구역으로 나뉘어 있어요.
+허브(`index.html`)는 **1인용 / 다인용 / 진행 도구** 탭으로 나뉘어 있어요. 마지막으로 본 탭을 기억하고, `#solo` · `#party` · `#tools` 주소로 그 탭을 바로 열 수 있어요(주소의 해시가 저장된 탭보다 우선).
 
 ### 1인용
 
@@ -37,7 +37,7 @@
 
 | 도구 | 폴더 | 설명 |
 | --- | --- | --- |
-| 🧰 진행 도구 | `tools/` | 탭 4개: 랜덤 팀 나누기(이름/태그로 균형 배분, 결과 복사) · 사다리 타기(애니메이션) · 룰렛(항목 직접 입력) · 순서 정하기 / 랜덤 뽑기 |
+| 🧰 진행 도구 | `tools/` | 탭 4개: 랜덤 팀 나누기(이름/태그 균형, 한 팀씩 공개, 결과 복사) · 사다리 타기(도착할 때 결과 공개) · 룰렛(글자가 바로 읽힘, 감속·틱) · 슬롯 순서/뽑기. 전체 화면 |
 
 ### 콘텐츠 규모 (교회 청소년·모임에서도 쓸 수 있도록 건전한 내용만)
 
@@ -47,12 +47,13 @@
 ## 폴더 구조
 
 ```
-index.html          허브 페이지 (1인용 / 다인용 / 진행 도구 카드 목록)
+index.html          허브 페이지 (1인용 / 다인용 / 진행 도구 탭)
 assets/style.css    공통 스타일 (색상 변수, 헤더, 버튼, 팝업, 칩, 팀 라운드 UI, 다크 모드)
 assets/common.js    공통 유틸 (MG.store, MG.Timer, MG.toast, MG.dialog, MG.rng, MG.shuffle,
                     MG.beep, MG.vibrate, MG.wake(화면 꺼짐 방지), MG.copy, MG.share)
 assets/teamround.js 팀 대항 진행 엔진 (몸으로 말해요 / 스피드 퀴즈 / 금지어 게임이 함께 사용)
 <게임>/index.html   각 게임 (한 파일에 HTML + 게임별 CSS/JS)
+tools/logic.js      진행 도구 계산 (사다리 순열, 룰렛 각도, 팀 배정. DOM 없음)
 */words.js          게임별 단어·문제 데이터 (wordle, chosung, charades, speed, taboo, liar, telepathy, ox/questions.js)
 ```
 
