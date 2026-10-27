@@ -8,15 +8,41 @@
   <meta name="description" content="스도쿠, 2048, 워들, 초성 퀴즈 같은 1인용 게임부터 몸으로 말해요, 라이어 게임, OX 퀴즈 같은 다인용 파티 게임과 진행 도구까지! 설치 없이 바로 즐기는 미니 게임 모음.">
   <meta name="color-scheme" content="light dark">
   <link rel="stylesheet" href="assets/style.css">
+  <script>
+  (function () {
+    var allowed = { solo: 1, party: 1, tools: 1 };
+    function fromHash() {
+      var m = /^#(solo|party|tools)\/?$/.exec((location.hash || '').toLowerCase());
+      return m ? m[1] : '';
+    }
+    function fromStore() {
+      try {
+        var raw = localStorage.getItem('hub.tab');
+        if (!raw) return '';
+        try { var p = JSON.parse(raw); if (allowed[p]) return p; } catch (e) {}
+        if (allowed[raw]) return raw;
+      } catch (e) {}
+      return '';
+    }
+    document.documentElement.setAttribute('data-hub', fromHash() || fromStore() || 'solo');
+  })();
+  </script>
 </head>
-<body>
+<body class="hub-page">
   <div class="hub">
     <header>
       <h1>🎮 Mini Games</h1>
       <p>잠깐 쉬어갈 때, 하나 골라 볼까요?</p>
     </header>
-    <section class="hub-section" aria-labelledby="h-solo">
-      <h2 class="section-title" id="h-solo">1인용 <small>혼자서 가볍게</small></h2>
+    <div class="hub-switch">
+      <div class="hub-modes" id="hub-tabs" role="tablist" aria-label="게임 종류">
+        <button type="button" class="hub-mode" role="tab" id="tab-solo" data-tab="solo" aria-controls="panel-solo" aria-selected="true" tabindex="0">😊 1인용</button>
+        <button type="button" class="hub-mode" role="tab" id="tab-party" data-tab="party" aria-controls="panel-party" aria-selected="false" tabindex="-1">👥 다인용</button>
+        <button type="button" class="hub-mode" role="tab" id="tab-tools" data-tab="tools" aria-controls="panel-tools" aria-selected="false" tabindex="-1">🧰 진행 도구</button>
+      </div>
+    </div>
+    <section class="hub-section" id="panel-solo" role="tabpanel" aria-labelledby="tab-solo" tabindex="0">
+      <h2 class="section-title" id="h-solo"><span class="hub-kicker">1인용</span> <small>혼자서 가볍게</small></h2>
       <nav class="cards" aria-label="1인용 게임 목록">
       <a class="card" href="sudoku/" style="--c:#3b82f6">
         <span class="emoji" aria-hidden="true">🔢</span>
@@ -48,8 +74,8 @@
       </a>
       </nav>
     </section>
-    <section class="hub-section" aria-labelledby="h-multi">
-      <h2 class="section-title" id="h-multi">다인용 <small>여럿이 모여서 · 한 화면 · 한 휴대폰으로</small></h2>
+    <section class="hub-section" id="panel-party" role="tabpanel" aria-labelledby="tab-party" tabindex="0">
+      <h2 class="section-title" id="h-multi"><span class="hub-kicker">다인용</span> <small>여럿이 모여서 · 한 화면 · 한 휴대폰으로</small></h2>
       <nav class="cards" aria-label="다인용 게임 목록">
       <a class="card" href="chosung/?mode=party" style="--c:#0891b2">
         <span class="emoji" aria-hidden="true">💡</span>
@@ -85,8 +111,8 @@
       </a>
       </nav>
     </section>
-    <section class="hub-section" aria-labelledby="h-tools">
-      <h2 class="section-title" id="h-tools">진행 도구 <small>모임 진행을 도와줘요</small></h2>
+    <section class="hub-section" id="panel-tools" role="tabpanel" aria-labelledby="tab-tools" tabindex="0">
+      <h2 class="section-title" id="h-tools"><span class="hub-kicker">진행 도구</span> <small>모임 진행을 도와줘요</small></h2>
       <nav class="cards" aria-label="진행 도구">
       <a class="card" href="tools/" style="--c:#0d9488">
         <span class="emoji" aria-hidden="true">🧰</span>
@@ -96,5 +122,85 @@
     </section>
     <footer>광고도 설치도 없는 미니 게임 모음</footer>
   </div>
+  <script>
+  (function () {
+    var TABS = ['solo', 'party', 'tools'];
+    function allowed(t) { return TABS.indexOf(t) >= 0; }
+    function fromHash() {
+      var m = /^#(solo|party|tools)\/?$/.exec((location.hash || '').toLowerCase());
+      return m ? m[1] : '';
+    }
+    function fromStore() {
+      try {
+        var raw = localStorage.getItem('hub.tab');
+        if (!raw) return '';
+        try { var p = JSON.parse(raw); if (allowed(p)) return p; } catch (e) {}
+        if (allowed[raw]) return raw;
+      } catch (e) {}
+      return '';
+    }
+    function save(t) {
+      try { localStorage.setItem('hub.tab', JSON.stringify(t)); } catch (e) {}
+    }
+    function render(t, focus) {
+      if (!allowed(t)) t = 'solo';
+      document.documentElement.setAttribute('data-hub', t);
+      document.documentElement.classList.add('tabs-ready');
+      TABS.forEach(function (id) {
+        var on = id === t;
+        var btn = document.getElementById('tab-' + id);
+        var panel = document.getElementById('panel-' + id);
+        btn.setAttribute('aria-selected', on ? 'true' : 'false');
+        btn.tabIndex = on ? 0 : -1;
+        panel.hidden = !on;
+        if (focus && on) btn.focus();
+      });
+      document.querySelectorAll('.hub-kicker').forEach(function (el) { el.setAttribute('aria-hidden', 'true'); });
+      save(t);
+    }
+    function navigate(t, mode, focus) {
+      if (!allowed(t)) t = 'solo';
+      var cur = document.documentElement.getAttribute('data-hub');
+      if (t !== cur || !document.documentElement.classList.contains('tabs-ready')) render(t, focus);
+      else if (focus) document.getElementById('tab-' + t).focus();
+      var hash = '#' + t;
+      if (mode === 'push') {
+        if (location.hash !== hash) history.pushState({ hub: t }, '', hash);
+      } else if (mode === 'replace' && location.hash !== hash) {
+        history.replaceState({ hub: t }, '', hash);
+      }
+      if (mode === 'push' || mode === 'replace') {
+        var sw = document.querySelector('.hub-switch');
+        if (sw && sw.getBoundingClientRect().top < 0) window.scrollTo(0, Math.max(0, window.scrollY + sw.getBoundingClientRect().top - 8));
+      }
+    }
+    document.getElementById('hub-tabs').addEventListener('click', function (e) {
+      var b = e.target.closest('[role="tab"]');
+      if (!b) return;
+      navigate(b.getAttribute('data-tab'), 'push', false);
+    });
+    document.getElementById('hub-tabs').addEventListener('keydown', function (e) {
+      var cur = document.documentElement.getAttribute('data-hub') || 'solo';
+      var i = TABS.indexOf(cur);
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') i = (i + 1) % TABS.length;
+      else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') i = (i - 1 + TABS.length) % TABS.length;
+      else if (e.key === 'Home') i = 0;
+      else if (e.key === 'End') i = TABS.length - 1;
+      else return;
+      e.preventDefault();
+      navigate(TABS[i], 'push', true);
+    });
+    window.addEventListener('hashchange', function () {
+      var h = fromHash();
+      if (h) render(h, false);
+    });
+    window.addEventListener('popstate', function () {
+      render(fromHash() || fromStore() || 'solo', false);
+    });
+    var initial = fromHash() || fromStore() || 'solo';
+    render(initial, false);
+    if (location.hash !== '#' + initial) history.replaceState({ hub: initial }, '', '#' + initial);
+  })();
+  </script>
 </body>
 </html>
