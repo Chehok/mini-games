@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>워들 · Mini Games</title>
+  <meta name="description" content="영어 5글자 단어를 6번 안에 맞히는 워들. 매일 바뀌는 오늘의 단어와 무한 모드, 통계와 결과 공유를 지원해요.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="stylesheet" href="../assets/style.css">
+  <style>
+    :root { --c-correct: #3aa45c; --c-present: #d4a017; --c-absent: #787c8a; --tile-border: #c5c9da; }
+    @media (prefers-color-scheme: dark) { :root { --c-absent: #3b3f52; --tile-border: #414661; } }
+    main.game { display: flex; flex-direction: column; align-items: center; padding-bottom: 20px; }
+    .board { display: grid; grid-template-rows: repeat(6, 1fr); gap: 6px; width: min(100%, 320px, 50vh * .83); margin: 6px auto 14px; }
+    .brow { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+    .brow.shake { animation: shake .45s; }
+    @keyframes shake { 20%, 60% { transform: translateX(-7px); } 40%, 80% { transform: translateX(7px); } }
+    .tile {
+      aspect-ratio: 1; display: flex; align-items: center; justify-content: center; border: 2px solid var(--tile-border);
+      font-size: clamp(1.5rem, 8vw, 2rem); font-weight: 800; text-transform: uppercase; background: var(--surface); border-radius: 6px;
+      user-select: none;
+    }
+    .tile.filled { border-color: var(--muted); animation: pop .1s; }
+    @keyframes pop { 50% { transform: scale(1.1); } }
+    .tile.flip { animation: flip .5s ease-in-out; }
+    @keyframes flip { 0% { transform: rotateX(0); } 50% { transform: rotateX(90deg); } 100% { transform: rotateX(0); } }
+    .tile.correct, .key.correct { background: var(--c-correct); border-color: var(--c-correct); color: #fff; }
+    .tile.present, .key.present { background: var(--c-present); border-color: var(--c-present); color: #fff; }
+    .tile.absent, .key.absent { background: var(--c-absent); border-color: var(--c-absent); color: #fff; }
+    .tile.win { animation: bounce .6s; }
+    @keyframes bounce { 30% { transform: translateY(-10px); } 60% { transform: translateY(2px); } }
+    .kb { width: min(100%, 500px); display: flex; flex-direction: column; gap: 6px; }
+    .kb .krow { display: flex; gap: 5px; justify-content: center; }
+    .key {
+      flex: 1; max-width: 46px; height: 54px; padding: 0; border: 0; border-radius: 8px; background: var(--surface-2); color: var(--text);
+      font-weight: 700; font-size: 1rem; text-transform: uppercase; touch-action: manipulation; box-shadow: 0 1px 0 rgba(0,0,0,.15);
+    }
+    .key.wide { flex: 1.6; max-width: 70px; font-size: .8rem; }
+    .key:active { filter: brightness(.9); }
+    .modebar { display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; margin-bottom: 4px; }
+    .modebar .btn { padding: 8px 12px; }
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 12px 0; }
+    .stats-grid b { display: block; font-size: 1.5rem; }
+    .stats-grid span { font-size: .72rem; color: var(--muted); }
+    .dist { text-align: left; margin: 8px 0; }
+    .dist div { display: flex; align-items: center; gap: 6px; margin: 3px 0; font-size: .85rem; }
+    .dist i { display: block; min-width: 20px; background: var(--c-absent); color: #fff; font-style: normal; padding: 1px 6px; border-radius: 4px; text-align: right; font-weight: 700; }
+    .dist i.hl { background: var(--c-correct); }
+    .share-grid { font-size: 1.2rem; line-height: 1.25; letter-spacing: 1px; margin: 8px 0; }
+    .dialog .row.btns { display: flex; gap: 8px; margin-top: 14px; justify-content: center; flex-wrap: wrap; }
+  </style>
+</head>
+<body data-game="wordle">
+  <header class="site-header">
+    <a class="back" href="../">← 게임 목록</a>
+    <h1>🔤 워들</h1>
+    <span class="spacer"></span>
+  </header>
+  <main class="game">
+    <div class="modebar">
+      <div class="seg" id="modes" role="group" aria-label="모드">
+        <button data-mode="daily" aria-pressed="true">오늘의 단어</button>
+        <button data-mode="endless" aria-pressed="false">무한 모드</button>
+      </div>
+      <button class="btn" id="statsBtn" aria-label="통계">📊</button>
+      <button class="btn primary" id="newBtn" hidden>새 단어</button>
+    </div>
+    <div class="board" id="board" aria-label="워들 판"></div>
+    <div class="kb" id="kb"></div>
+  </main>
+
+<script src="../assets/common.js"></script>
+<script src="words.js"></script>
+<script>
+(function () {
+  'use strict';
+  var ANSWERS = window.WORDLE_ANSWERS, VALID = new Set(window.WORDLE_VALID.concat(ANSWERS));
+  var boardEl = document.getElementById('board'), kbEl = document.getElementById('kb'), newBtn = document.getElementById('newBtn');
+  var MAX = 6, LEN = 5, LOCK_MS = 1500;
+  var EPOCH = '2026-01-01';
+
+  /* ---------- pure logic ---------- */
+  // returns array of 'correct' | 'present' | 'absent' with correct duplicate handling
+  function evaluate(guess, answer) {
+    var res = new Array(LEN).fill('absent'), left = {}, i;
+    for (i = 0; i < LEN; i++) {
+      if (guess[i] === answer[i]) res[i] = 'correct';
+      else left[answer[i]] = (left[answer[i]] || 0) + 1;
+    }
+    for (i = 0; i < LEN; i++) {
+      if (res[i] === 'correct') continue;
+      if (left[guess[i]] > 0) { res[i] = 'present'; left[guess[i]]--; }
+    }
+    return res;
+  }
+  function seoulDate() {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  }
+  function dayNum(s) { var p = s.split('-'); return Math.round(Date.UTC(+p[0], +p[1] - 1, +p[2]) / 86400000); }
+  // fixed-order shuffle so the daily sequence isn't alphabetical/frequency-ordered, yet identical for everyone
+  var ORDER = (function () {
+    var idx = ANSWERS.map(function (_, i) { return i; });
+    return MG.shuffle(idx, MG.rng(20260101));
+  })();
+  function dailyAnswer(dateStr) {
+    var d = dayNum(dateStr) - dayNum(EPOCH);
+    var k = ((d % ANSWERS.length) + ANSWERS.length) % ANSWERS.length;
+    return ANSWERS[ORDER[k]];
+  }
+  window.Wordle = { evaluate: evaluate, dailyAnswer: dailyAnswer, seoulDate: seoulDate, isValid: function (w) { return VALID.has(w); } };
+
+  /* ---------- state ---------- */
+  var mode = MG.store.get('wordle.mode', 'daily');
+  var answer, guesses, cur, over, won, busy, today;
+
+  var tiles = [], rows = [];
+  for (var r = 0; r < MAX; r++) {
+    var row = document.createElement('div'); row.className = 'brow'; row.setAttribute('role', 'row');
+    for (var c = 0; c < LEN; c++) { var t = document.createElement('div'); t.className = 'tile'; row.appendChild(t); tiles.push(t); }
+    boardEl.appendChild(row); rows.push(row);
+  }
+  var keyEls = {};
+  [['q','w','e','r','t','y','u','i','o','p'], ['a','s','d','f','g','h','j','k','l'], ['Enter','z','x','c','v','b','n','m','⌫']].forEach(function (line) {
+    var kr = document.createElement('div'); kr.className = 'krow';
+    line.forEach(function (k) {
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'key' + (k.length > 1 || k === '⌫' ? ' wide' : '');
+      b.dataset.k = k; b.textContent = k === 'Enter' ? '입력' : k;
+      if (k === '⌫') b.setAttribute('aria-label', '지우기');
+      kr.appendChild(b); keyEls[k] = b;
+    });
+    kbEl.appendChild(kr);
+  });
+
+  function tileAt(r, c) { return tiles[r * LEN + c]; }
+
+  function paintRow(r, word, states) {
+    for (var c = 0; c < LEN; c++) {
+      var t = tileAt(r, c);
+      t.textContent = word[c] || '';
+      t.className = 'tile' + (word[c] ? ' filled' : '') + (states ? ' ' + states[c] : '');
+    }
+  }
+  function paintKeys() {
+    var rank = { absent: 1, present: 2, correct: 3 }, best = {};
+    guesses.forEach(function (g) {
+      evaluate(g, answer).forEach(function (s, i) { if (!best[g[i]] || rank[s] > rank[best[g[i]]]) best[g[i]] = s; });
+    });
+    Object.keys(keyEls).forEach(function (k) { keyEls[k].classList.remove('correct', 'present', 'absent'); });
+    Object.keys(best).forEach(function (k) { keyEls[k].classList.add(best[k]); });
+  }
+  function renderAll() {
+    for (var r = 0; r < MAX; r++) {
+      if (r < guesses.length) paintRow(r, guesses[r], evaluate(guesses[r], answer));
+      else if (r === guesses.length) paintRow(r, cur);
+      else paintRow(r, '');
+    }
+    paintKeys();
+  }
+
+  function saveDaily() { if (mode === 'daily') MG.store.set('wordle.daily', { date: today, guesses: guesses }); }
+
+  function startGame() {
+    today = seoulDate(); cur = ''; busy = false; guesses = []; over = false; won = false;
+    document.querySelectorAll('#modes button').forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.mode === mode ? 'true' : 'false'); });
+    if (mode === 'daily') {
+      answer = dailyAnswer(today);
+      var saved = MG.store.get('wordle.daily', null);
+      if (saved && saved.date === today && Array.isArray(saved.guesses)) {
+        guesses = saved.guesses.filter(function (g) { return typeof g === 'string' && g.length === LEN; }).slice(0, MAX);
+        if (guesses.indexOf(answer) >= 0) { won = over = true; guesses = guesses.slice(0, guesses.indexOf(answer) + 1); }
+        else if (guesses.length >= MAX) over = true;
+      }
+    } else {
+      answer = ANSWERS[Math.floor(Math.random() * ANSWERS.length)];
+    }
+    newBtn.hidden = mode !== 'endless';
+    renderAll();
+  }
+
+  /* ---------- stats ---------- */
+  function emptyStats() { return { played: 0, wins: 0, streak: 0, max: 0, dist: [0, 0, 0, 0, 0, 0], lastWin: '' }; }
+  function getStats(m) { return Object.assign(emptyStats(), MG.store.get('wordle.stats.' + m, {})); }
+  function recordResult(didWin, nGuesses) {
+    var s = getStats(mode);
+    s.played++;
+    if (didWin) {
+      s.wins++; s.dist[nGuesses - 1]++;
+      if (mode === 'daily') s.streak = (s.lastWin && dayNum(today) - dayNum(s.lastWin) === 1) ? s.streak + 1 : 1;
+      else s.streak++;
+      s.lastWin = today; s.max = Math.max(s.max, s.streak);
+    } else s.streak = 0;
+    MG.store.set('wordle.stats.' + mode, s);
+  }
+
+  /* ---------- input ---------- */
+  function addLetter(ch) {
+    if (over || busy || cur.length >= LEN) return;
+    cur += ch; paintRow(guesses.length, cur);
+  }
+  function backspace() {
+    if (over || busy || !cur.length) return;
+    cur = cur.slice(0, -1); paintRow(guesses.length, cur);
+  }
+  function invalid(msg) {
+    MG.toast(msg);
+    var row = rows[guesses.length]; row.classList.remove('shake'); void row.offsetWidth; row.classList.add('shake');
+  }
+  function submit() {
+    if (over || busy) return;
+    if (cur.length < LEN) return invalid('글자가 부족해요');
+    if (!VALID.has(cur)) return invalid('단어 목록에 없어요');
+    var g = cur, r = guesses.length, states = evaluate(g, answer);
+    guesses.push(g); cur = ''; busy = true; saveDaily();
+    for (var c = 0; c < LEN; c++) (function (c) {
+      var t = tileAt(r, c);
+      setTimeout(function () { t.classList.add('flip'); }, c * 250);
+      setTimeout(function () { t.classList.add(states[c]); }, c * 250 + 250);
+    })(c);
+    setTimeout(function () {
+      busy = false; paintKeys();
+      if (g === answer) {
+        won = over = true;
+        for (var c = 0; c < LEN; c++) (function (c) { setTimeout(function () { tileAt(r, c).classList.add('win'); }, c * 80); })(c);
+        recordResult(true, guesses.length);
+        MG.toast(['대단해요! 🤩', '훌륭해요! 🎉', '멋져요! 👏', '잘했어요! 😄', '아슬아슬! 😅', '휴, 성공! 😮‍💨'][guesses.length - 1], 1800);
+        setTimeout(showResult, 1500);
+      } else if (guesses.length >= MAX) {
+        over = true; recordResult(false, 0);
+        MG.toast('정답은 ' + answer.toUpperCase(), 2500);
+        setTimeout(showResult, 1500);
+      }
+    }, LEN * 250 + 300);
+  }
+
+  function shareText() {
+    var head = '🔤 Mini Games 워들 ' + (mode === 'daily' ? '#' + (dayNum(today) - dayNum(EPOCH) + 1) + ' ' : '무한 ') + (won ? guesses.length : 'X') + '/' + MAX;
+    var map = { correct: '🟩', present: '🟨', absent: '⬛' };
+    var lines = guesses.map(function (g) { return evaluate(g, answer).map(function (s) { return map[s]; }).join(''); });
+    return head + '\n' + lines.join('\n');
+  }
+  function copyText(text) {
+    function fallback() {
+      var ta = document.createElement('textarea'); ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      var ok = false; try { ok = document.execCommand('copy'); } catch (e) {}
+      ta.remove(); return ok;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text).then(function () { return true; }, function () { return fallback(); });
+    }
+    return Promise.resolve(fallback());
+  }
+
+  function statsHTML(s, highlight) {
+    var pct = s.played ? Math.round(s.wins / s.played * 100) : 0, mx = Math.max.apply(null, s.dist.concat([1])), h = '';
+    h += '<div class="stats-grid"><div><b>' + s.played + '</b><span>플레이</span></div><div><b>' + pct + '%</b><span>승률</span></div>' +
+      '<div><b>' + s.streak + '</b><span>연승</span></div><div><b>' + s.max + '</b><span>최고 연승</span></div></div><div class="dist">';
+    s.dist.forEach(function (n, i) {
+      h += '<div>' + (i + 1) + '<i class="' + (highlight === i + 1 ? 'hl' : '') + '" style="width:' + Math.max(8, n / mx * 100) + '%">' + n + '</i></div>';
+    });
+    return h + '</div>';
+  }
+
+  function showDialog(opts) {
+    var ov = document.createElement('div'); ov.className = 'overlay show';
+    var d = document.createElement('div'); d.className = 'dialog'; d.setAttribute('role', 'dialog'); d.setAttribute('aria-modal', 'true');
+    d.innerHTML = '<h2></h2>' + (opts.html || '') + '<div class="row btns"></div>';
+    d.querySelector('h2').textContent = opts.title;
+    var btns = d.querySelector('.btns');
+    function close() { ov.remove(); document.removeEventListener('keydown', onKey, true); }
+    function onKey(e) { if (e.key === 'Escape') close(); }
+    opts.buttons.forEach(function (b) {
+      var el = document.createElement('button'); el.className = 'btn' + (b.primary ? ' primary' : ''); el.textContent = b.label;
+      el.addEventListener('click', function () { b.keep ? b.onClick(el) : (close(), b.onClick && b.onClick()); });
+      btns.appendChild(el);
+    });
+    ov.appendChild(d); ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
+    document.addEventListener('keydown', onKey, true);
+    document.body.appendChild(ov);
+  }
+
+  function showResult() {
+    var s = getStats(mode);
+    var title = won ? '🎉 정답이에요!' : '아쉬워요 😢';
+    var html = '<p>' + (won ? guesses.length + '번 만에 맞혔어요.' : '정답은 <b>' + answer.toUpperCase() + '</b> 였어요.') + '</p>' +
+      '<div class="share-grid">' + shareText().split('\n').slice(1).join('<br>') + '</div>' + statsHTML(s, won ? guesses.length : 0) +
+      (mode === 'daily' ? '<p>내일 새로운 단어가 나와요.</p>' : '');
+    var buttons = [{ label: '📋 결과 복사', primary: true, keep: true, onClick: function (el) {
+      copyText(shareText()).then(function (ok) { MG.toast(ok ? '결과를 복사했어요!' : '복사하지 못했어요'); });
+    } }];
+    if (mode === 'daily') buttons.push({ label: '무한 모드', onClick: function () { setMode('endless'); } });
+    else buttons.push({ label: '새 단어', onClick: startGame });
+    buttons.push({ label: '닫기' });
+    showDialog({ title: title, html: html, buttons: buttons });
+  }
+
+  function showStats() {
+    var s = getStats(mode);
+    showDialog({ title: '📊 통계 · ' + (mode === 'daily' ? '오늘의 단어' : '무한 모드'), html: statsHTML(s, 0),
+      buttons: [{ label: '닫기', primary: true }] });
+  }
+
+  function setMode(m) { mode = m; MG.store.set('wordle.mode', m); startGame(); }
+
+  document.getElementById('modes').addEventListener('click', function (e) {
+    var t = e.target.closest('button'); if (t && t.dataset.mode !== mode) { setMode(t.dataset.mode); t.blur(); }
+  });
+  document.getElementById('statsBtn').addEventListener('click', showStats);
+  newBtn.addEventListener('click', function () { startGame(); newBtn.blur(); });
+
+  kbEl.addEventListener('click', function (e) {
+    var b = e.target.closest('.key'); if (!b) return;
+    var k = b.dataset.k;
+    if (k === 'Enter') submit(); else if (k === '⌫') backspace(); else addLetter(k);
+    b.blur();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.ctrlKey || e.metaKey || e.altKey || document.querySelector('.overlay.show')) return;
+    if (e.key === 'Enter') { if (document.activeElement && document.activeElement.tagName === 'BUTTON') return; e.preventDefault(); submit(); return; }
+    if (e.key === 'Backspace') { e.preventDefault(); backspace(); return; }
+    // use the physical key so letters work even while a Korean IME is active
+    var m = /^Key([A-Z])$/.exec(e.code || '');
+    if (m) { e.preventDefault(); addLetter(m[1].toLowerCase()); }
+    else if (/^[a-zA-Z]$/.test(e.key)) addLetter(e.key.toLowerCase());
+  });
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && mode === 'daily' && seoulDate() !== today && !busy) startGame();
+  });
+
+  window.__wordle = { answer: function () { return answer; }, state: function () { return { guesses: guesses.slice(), over: over, won: won, mode: mode }; } };
+  startGame();
+})();
+</script>
+</body>
+</html>

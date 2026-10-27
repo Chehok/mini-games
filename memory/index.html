@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>카드 짝맞추기 · Mini Games</title>
+  <meta name="description" content="이모지 카드를 뒤집어 같은 그림의 짝을 찾는 기억력 게임. 난이도별 최고 기록이 저장돼요.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="stylesheet" href="../assets/style.css">
+  <style>
+    .grid { --cols: 4; display: grid; grid-template-columns: repeat(var(--cols), 1fr); gap: 8px; width: min(100%, 520px); margin: 0 auto; }
+    .card {
+      position: relative; aspect-ratio: 1; padding: 0; border: 0; background: none; perspective: 700px;
+      touch-action: manipulation; border-radius: 12px;
+    }
+    .card .in {
+      position: absolute; inset: 0; transform-style: preserve-3d; transition: transform .35s;
+    }
+    .card.up .in, .card.matched .in { transform: rotateY(180deg); }
+    .face {
+      position: absolute; inset: 0; border-radius: 12px; display: flex; align-items: center; justify-content: center;
+      backface-visibility: hidden; -webkit-backface-visibility: hidden; box-shadow: var(--shadow);
+    }
+    .face.back {
+      background: repeating-linear-gradient(45deg, var(--accent), var(--accent) 8px, color-mix(in srgb, var(--accent) 80%, #fff) 8px, color-mix(in srgb, var(--accent) 80%, #fff) 16px);
+      border: 3px solid var(--surface); color: #fff; font-size: 1.6rem; font-weight: 800;
+    }
+    .face.front {
+      background: var(--surface); border: 2px solid var(--border); transform: rotateY(180deg); font-size: clamp(1.6rem, 9vw, 3rem);
+    }
+    .card.matched .face.front { border-color: var(--good); background: color-mix(in srgb, var(--good) 14%, var(--surface)); }
+    .card.matched .in { animation: pulse .4s .3s; }
+    .card.bad .face.front { border-color: var(--bad); }
+    @keyframes pulse { 50% { transform: rotateY(180deg) scale(1.08); } }
+    @media (min-width: 560px) { .face.front { font-size: 3rem; } }
+  </style>
+</head>
+<body data-game="memory">
+  <header class="site-header">
+    <a class="back" href="../">← 게임 목록</a>
+    <h1>🃏 카드 짝맞추기</h1>
+    <span class="spacer"></span>
+  </header>
+  <main class="game">
+    <div class="seg-wrap">
+      <div class="seg" id="levels" role="group" aria-label="난이도">
+        <button data-k="4x3" aria-pressed="false">4×3 쉬움</button>
+        <button data-k="4x4" aria-pressed="true">4×4 보통</button>
+        <button data-k="6x4" aria-pressed="false">6×4 어려움</button>
+      </div>
+    </div>
+    <div class="statbar">
+      <div class="stat"><span class="label">이동</span><span class="value" id="moves">0</span></div>
+      <div class="stat"><span class="label">시간</span><span class="value" id="time">00:00</span></div>
+      <div class="stat"><span class="label">최고 기록</span><span class="value" id="best">-</span></div>
+    </div>
+    <div class="grid" id="grid"></div>
+    <div class="toolbar"><button class="btn primary" id="newBtn">새 게임</button></div>
+    <p class="hint">카드를 두 장씩 뒤집어 같은 그림을 찾아보세요.</p>
+  </main>
+
+<script src="../assets/common.js"></script>
+<script>
+(function () {
+  'use strict';
+  var EMOJI = ['🐶','🐱','🐰','🦊','🐼','🐸','🐵','🦁','🐯','🐨','🐷','🐙','🦄','🐢','🐧','🐝'];
+  var LEVELS = { '4x3': { cols: 4, rows: 3, name: '쉬움' }, '4x4': { cols: 4, rows: 4, name: '보통' }, '6x4': { cols: 6, rows: 4, name: '어려움' } };
+  var gridEl = document.getElementById('grid'), movesEl = document.getElementById('moves'), timeEl = document.getElementById('time'), bestEl = document.getElementById('best');
+  var key = MG.store.get('memory.level', '4x4'); if (!LEVELS[key]) key = '4x4';
+  var deck, els, first, busy, moves, matched, started;
+  var timer = MG.Timer(function (s) { timeEl.textContent = MG.fmtTime(s); });
+
+  function layoutCols() {
+    var L = LEVELS[key], narrow = window.innerWidth < 520;
+    // portrait on phones: use the smaller dimension as column count
+    gridEl.style.setProperty('--cols', narrow ? Math.min(L.cols, L.rows) : L.cols);
+  }
+  function showBest() {
+    var b = MG.store.get('memory.best.' + key, null);
+    bestEl.textContent = b ? b.moves + '번' : '-';
+  }
+
+  function newGame() {
+    var L = LEVELS[key], pairs = L.cols * L.rows / 2;
+    var pick = MG.shuffle(EMOJI.slice()).slice(0, pairs);
+    deck = MG.shuffle(pick.concat(pick));
+    first = -1; busy = false; moves = 0; matched = 0; started = false;
+    timer.reset(); movesEl.textContent = 0; showBest(); layoutCols();
+    gridEl.innerHTML = ''; els = [];
+    deck.forEach(function (e, i) {
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'card'; b.dataset.i = i; b.setAttribute('aria-label', '카드 ' + (i + 1));
+      b.innerHTML = '<span class="in"><span class="face back">?</span><span class="face front"></span></span>';
+      b.querySelector('.front').textContent = e;
+      gridEl.appendChild(b); els.push(b);
+    });
+  }
+
+  function flip(i) {
+    if (busy) return;
+    var el = els[i];
+    if (el.classList.contains('up') || el.classList.contains('matched')) return;
+    if (!started) { started = true; timer.start(); }
+    el.classList.add('up');
+    if (first < 0) { first = i; return; }
+    var a = first, b = i; first = -1; moves++; movesEl.textContent = moves;
+    if (deck[a] === deck[b]) {
+      [a, b].forEach(function (k) { els[k].classList.remove('up'); els[k].classList.add('matched'); els[k].disabled = true; });
+      matched += 2;
+      if (matched === deck.length) setTimeout(win, 600);
+    } else {
+      busy = true;
+      els[a].classList.add('bad'); els[b].classList.add('bad');
+      setTimeout(function () {
+        [a, b].forEach(function (k) { els[k].classList.remove('up', 'bad'); });
+        busy = false;
+      }, 800);
+    }
+  }
+
+  function win() {
+    timer.stop();
+    var secs = Math.floor(timer.seconds), prev = MG.store.get('memory.best.' + key, null), extra = '';
+    if (!prev || moves < prev.moves || (moves === prev.moves && secs < prev.secs)) {
+      MG.store.set('memory.best.' + key, { moves: moves, secs: secs });
+      if (prev) extra = '\n🏆 새 기록!';
+    }
+    showBest();
+    MG.dialog({
+      title: '🎉 모두 맞췄어요!', text: LEVELS[key].name + ' · 이동 ' + moves + '번 · ' + MG.fmtTime(secs) + extra,
+      buttons: [{ label: '새 게임', primary: true, onClick: newGame }, { label: '닫기' }]
+    });
+  }
+
+  gridEl.addEventListener('click', function (e) {
+    var t = e.target.closest('.card'); if (t) flip(+t.dataset.i);
+  });
+  document.getElementById('newBtn').addEventListener('click', newGame);
+  function setLevelUI() { document.querySelectorAll('#levels button').forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.k === key ? 'true' : 'false'); }); }
+  document.getElementById('levels').addEventListener('click', function (e) {
+    var t = e.target.closest('button'); if (!t) return;
+    key = t.dataset.k; MG.store.set('memory.level', key); setLevelUI(); newGame();
+  });
+  window.addEventListener('resize', layoutCols);
+
+  window.__memory = { deck: function () { return deck.slice(); } };
+  setLevelUI(); newGame();
+})();
+</script>
+</body>
+</html>

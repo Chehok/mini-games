@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>지뢰찾기 · Mini Games</title>
+  <meta name="description" content="지뢰를 피해 모든 안전한 칸을 여는 고전 게임. 초급·중급·고급, 깃발 모드와 길게 누르기를 지원해요.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="stylesheet" href="../assets/style.css">
+  <style>
+    main.game { max-width: 1100px; }
+    .scroller { overflow: auto; max-width: 100%; text-align: center; padding: 2px 0 8px; -webkit-overflow-scrolling: touch; }
+    .grid {
+      --cs: 32px;
+      display: inline-grid; text-align: left; gap: var(--gap, 2px); padding: var(--pad, 6px); background: var(--surface-2);
+      border-radius: 12px; border: 1px solid var(--border); user-select: none; -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+    .m {
+      width: var(--cs); height: var(--cs); display: flex; align-items: center; justify-content: center;
+      border-radius: 5px; font-weight: 800; font-size: calc(var(--cs) * .56); line-height: 1; cursor: pointer;
+      background: color-mix(in srgb, var(--accent) 38%, var(--surface)); border: 0;
+      box-shadow: inset 0 -2px 0 rgba(0,0,0,.12); touch-action: manipulation;
+    }
+    .m:hover { filter: brightness(1.08); }
+    .m.open { background: var(--surface); box-shadow: none; cursor: default; filter: none; }
+    .m.flag::before { content: "🚩"; font-size: calc(var(--cs) * .55); }
+    .m.mine::before { content: "💣"; font-size: calc(var(--cs) * .55); }
+    .m.mine.open { background: color-mix(in srgb, var(--bad) 30%, var(--surface)); }
+    .m.boom { background: var(--bad); }
+    .m.wrongflag::after { content: "❌"; position: absolute; font-size: calc(var(--cs) * .4); }
+    .m.cur { outline: 3px solid var(--text); outline-offset: -3px; }
+    .n1 { color: #2563eb; } .n2 { color: #16a34a; } .n3 { color: #dc2626; } .n4 { color: #7c3aed; }
+    .n5 { color: #b45309; } .n6 { color: #0891b2; } .n7 { color: var(--text); } .n8 { color: var(--muted); }
+  </style>
+</head>
+<body data-game="minesweeper">
+  <header class="site-header">
+    <a class="back" href="../">← 게임 목록</a>
+    <h1>💣 지뢰찾기</h1>
+    <span class="spacer"></span>
+  </header>
+  <main class="game">
+    <div class="seg-wrap">
+      <div class="seg" id="levels" role="group" aria-label="난이도">
+        <button data-level="beginner" aria-pressed="true">초급</button>
+        <button data-level="intermediate" aria-pressed="false">중급</button>
+        <button data-level="expert" aria-pressed="false">고급</button>
+      </div>
+    </div>
+    <div class="statbar">
+      <div class="stat"><span class="label">남은 지뢰</span><span class="value" id="mines">10</span></div>
+      <div class="stat"><span class="label">시간</span><span class="value" id="time">00:00</span></div>
+    </div>
+    <div class="scroller" id="scroller"><div class="grid" id="grid" role="grid" aria-label="지뢰찾기 판"></div></div>
+    <div class="toolbar">
+      <button class="btn" id="flagBtn" aria-pressed="false">🚩 깃발 모드 끔</button>
+      <button class="btn primary" id="newBtn">🙂 새 게임</button>
+    </div>
+    <p class="hint">PC: 클릭 = 열기, 우클릭 = 깃발, 숫자 칸 더블클릭 = 주변 열기<br>모바일: 탭 = 열기, 길게 누르기 또는 깃발 모드 = 깃발</p>
+  </main>
+
+<script src="../assets/common.js"></script>
+<script>
+(function () {
+  'use strict';
+  var LEVELS = {
+    beginner: { name: '초급', cols: 9, rows: 9, mines: 10 },
+    intermediate: { name: '중급', cols: 16, rows: 16, mines: 40 },
+    expert: { name: '고급', cols: 30, rows: 16, mines: 99 }
+  };
+  var gridEl = document.getElementById('grid'), scroller = document.getElementById('scroller');
+  var minesEl = document.getElementById('mines'), timeEl = document.getElementById('time'), flagBtn = document.getElementById('flagBtn');
+  var levelKey = MG.store.get('ms.level', 'beginner'); if (!LEVELS[levelKey]) levelKey = 'beginner';
+  var cfg, cols, rows, mineCount, cells, els, started, over, flags, revealed, flagMode = false, cursor = 0, boomIdx = -1;
+  var timer = MG.Timer(function (s) { timeEl.textContent = MG.fmtTime(s); });
+
+  function neighbors(i) {
+    var r = Math.floor(i / cols), c = i % cols, out = [];
+    for (var dr = -1; dr <= 1; dr++) for (var dc = -1; dc <= 1; dc++) {
+      if (!dr && !dc) continue;
+      var rr = r + dr, cc = c + dc;
+      if (rr >= 0 && rr < rows && cc >= 0 && cc < cols) out.push(rr * cols + cc);
+    }
+    return out;
+  }
+
+  function fitCellSize() {
+    var small = window.innerWidth < 500, gap = small ? 1 : 2, pad = small ? 4 : 6;
+    gridEl.style.setProperty('--gap', gap + 'px'); gridEl.style.setProperty('--pad', pad + 'px');
+    var avail = scroller.clientWidth - 2 * pad - 2;
+    var cs = Math.floor((avail - (cols - 1) * gap) / cols);
+    cs = Math.max(18, Math.min(38, cs));
+    gridEl.style.setProperty('--cs', cs + 'px');
+  }
+
+  function newGame() {
+    cfg = LEVELS[levelKey]; cols = cfg.cols; rows = cfg.rows; mineCount = cfg.mines;
+    // On narrow screens, flip the expert board to portrait (16 wide x 30 tall) so it scrolls vertically.
+    if (levelKey === 'expert' && window.innerWidth < 700) { cols = 16; rows = 30; }
+    cells = []; els = []; started = false; over = false; flags = 0; revealed = 0; boomIdx = -1; cursor = 0;
+    timer.reset();
+    gridEl.innerHTML = '';
+    gridEl.style.gridTemplateColumns = 'repeat(' + cols + ', var(--cs))';
+    for (var i = 0; i < cols * rows; i++) {
+      cells.push({ mine: false, adj: 0, open: false, flag: false });
+      var d = document.createElement('div'); d.className = 'm'; d.dataset.i = i; d.setAttribute('role', 'gridcell');
+      gridEl.appendChild(d); els.push(d);
+    }
+    fitCellSize(); updateMines(); render();
+  }
+
+  function placeMines(safe) {
+    var banned = {}; banned[safe] = 1;
+    var ring = neighbors(safe);
+    if (cols * rows - ring.length - 1 >= mineCount) ring.forEach(function (n) { banned[n] = 1; });
+    var pool = [];
+    for (var i = 0; i < cells.length; i++) if (!banned[i]) pool.push(i);
+    MG.shuffle(pool);
+    for (i = 0; i < mineCount; i++) cells[pool[i]].mine = true;
+    for (i = 0; i < cells.length; i++) {
+      var n = 0; neighbors(i).forEach(function (j) { if (cells[j].mine) n++; });
+      cells[i].adj = n;
+    }
+  }
+
+  function updateMines() { minesEl.textContent = mineCount - flags; }
+
+  function paint(i) {
+    var c = cells[i], el = els[i], cls = 'm';
+    if (c.open) {
+      cls += ' open'; el.textContent = '';
+      if (c.mine) cls += ' mine' + (i === boomIdx ? ' boom' : '');
+      else if (c.adj) { cls += ' n' + c.adj; el.textContent = c.adj; }
+    } else {
+      el.textContent = '';
+      if (c.flag) cls += ' flag';
+      if (over && c.mine && !c.flag) cls += ' open mine';
+      if (over && c.flag && !c.mine) cls += ' flag wrongflag';
+    }
+    if (i === cursor && document.activeElement === gridEl) cls += ' cur';
+    el.className = cls;
+  }
+  function render() { for (var i = 0; i < cells.length; i++) paint(i); }
+
+  function reveal(i) {
+    if (over) return;
+    var c = cells[i];
+    if (c.open || c.flag) return;
+    if (!started) { started = true; placeMines(i); timer.start(); }
+    if (c.mine) { boomIdx = i; return lose(); }
+    var stack = [i];
+    while (stack.length) {
+      var k = stack.pop(), ck = cells[k];
+      if (ck.open || ck.flag) continue;
+      ck.open = true; revealed++; paint(k);
+      if (ck.adj === 0) neighbors(k).forEach(function (n) { if (!cells[n].open && !cells[n].flag) stack.push(n); });
+    }
+    if (revealed === cells.length - mineCount) win();
+  }
+
+  function toggleFlag(i) {
+    if (over) return;
+    var c = cells[i]; if (c.open) return;
+    if (!c.flag && flags >= mineCount) { MG.toast('깃발을 모두 사용했어요'); return; }
+    c.flag = !c.flag; flags += c.flag ? 1 : -1;
+    updateMines(); paint(i);
+  }
+
+  function chord(i) {
+    if (over) return;
+    var c = cells[i]; if (!c.open || !c.adj) return;
+    var ns = neighbors(i), f = 0;
+    ns.forEach(function (n) { if (cells[n].flag) f++; });
+    if (f !== c.adj) return;
+    ns.forEach(function (n) { if (!cells[n].flag && !cells[n].open) reveal(n); });
+  }
+
+  function primary(i) {
+    if (flagMode && !cells[i].open) toggleFlag(i);
+    else if (cells[i].open) chord(i);
+    else reveal(i);
+  }
+
+  function lose() {
+    over = true; timer.stop();
+    cells[boomIdx].open = true;
+    render();
+    MG.dialog({ title: '💥 펑!', text: '지뢰를 밟았어요. 다시 도전해 볼까요?', buttons: [{ label: '새 게임', primary: true, onClick: newGame }, { label: '닫기' }] });
+  }
+
+  function win() {
+    over = true; timer.stop();
+    cells.forEach(function (c, i) { if (c.mine && !c.flag) { c.flag = true; flags++; } });
+    updateMines(); render();
+    var secs = Math.floor(timer.seconds), key = 'ms.best.' + levelKey, best = MG.store.get(key, null), extra = '';
+    if (best === null || secs < best) { MG.store.set(key, secs); if (best !== null) extra = '\n🏆 새 기록!'; best = secs; }
+    MG.dialog({
+      title: '🎉 성공!', text: cfg.name + ' · ' + MG.fmtTime(secs) + '\n최고 기록 ' + MG.fmtTime(best) + extra,
+      buttons: [{ label: '새 게임', primary: true, onClick: newGame }, { label: '닫기' }]
+    });
+  }
+
+  /* ---------- input ---------- */
+  var lastType = 'mouse', pressTimer = null, longFired = false, startX = 0, startY = 0, downIdx = -1;
+  function cellOf(e) { var t = e.target.closest ? e.target.closest('.m') : null; return t ? +t.dataset.i : -1; }
+
+  gridEl.addEventListener('pointerdown', function (e) {
+    lastType = e.pointerType; longFired = false;
+    var i = cellOf(e); downIdx = i; startX = e.clientX; startY = e.clientY;
+    if (i < 0) return;
+    if (e.pointerType !== 'mouse') {
+      clearTimeout(pressTimer);
+      pressTimer = setTimeout(function () {
+        longFired = true; pressTimer = null;
+        if (navigator.vibrate) try { navigator.vibrate(15); } catch (x) {}
+        cells[i].open ? chord(i) : toggleFlag(i);
+      }, 450);
+    }
+  });
+  gridEl.addEventListener('pointermove', function (e) {
+    if (pressTimer && Math.hypot(e.clientX - startX, e.clientY - startY) > 10) { clearTimeout(pressTimer); pressTimer = null; downIdx = -1; }
+  });
+  function cancelPress() { clearTimeout(pressTimer); pressTimer = null; }
+  gridEl.addEventListener('pointercancel', function () { cancelPress(); downIdx = -1; });
+  gridEl.addEventListener('pointerup', function (e) {
+    cancelPress();
+    var i = cellOf(e);
+    if (longFired || i < 0 || i !== downIdx) return;
+    if (e.pointerType === 'mouse') {
+      if (e.button === 0) { cursor = i; if (cells[i].open) { /* chord via dblclick */ } else primaryMouse(i); }
+      else if (e.button === 1) chord(i);
+    } else primary(i);
+  });
+  function primaryMouse(i) { if (flagMode) toggleFlag(i); else reveal(i); }
+  gridEl.addEventListener('dblclick', function (e) { var i = cellOf(e); if (i >= 0) chord(i); });
+  gridEl.addEventListener('contextmenu', function (e) {
+    e.preventDefault();
+    var i = cellOf(e);
+    if (i >= 0 && lastType === 'mouse') toggleFlag(i);
+  });
+
+  /* keyboard: focus the grid, arrows move, space/enter open, f flag */
+  gridEl.tabIndex = 0;
+  gridEl.addEventListener('focus', function () { paint(cursor); });
+  gridEl.addEventListener('blur', function () { paint(cursor); });
+  gridEl.addEventListener('keydown', function (e) {
+    var k = e.key, r = Math.floor(cursor / cols), c = cursor % cols, old = cursor;
+    if (k === 'ArrowUp') r = Math.max(0, r - 1); else if (k === 'ArrowDown') r = Math.min(rows - 1, r + 1);
+    else if (k === 'ArrowLeft') c = Math.max(0, c - 1); else if (k === 'ArrowRight') c = Math.min(cols - 1, c + 1);
+    else if (k === ' ' || k === 'Enter') { e.preventDefault(); cells[cursor].open ? chord(cursor) : reveal(cursor); return; }
+    else if (k === 'f' || k === 'F') { toggleFlag(cursor); return; }
+    else return;
+    e.preventDefault(); cursor = r * cols + c; paint(old); paint(cursor);
+    els[cursor].scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  });
+
+  flagBtn.addEventListener('click', function () {
+    flagMode = !flagMode;
+    flagBtn.setAttribute('aria-pressed', flagMode ? 'true' : 'false');
+    flagBtn.textContent = flagMode ? '🚩 깃발 모드 켬' : '🚩 깃발 모드 끔';
+  });
+  document.getElementById('newBtn').addEventListener('click', newGame);
+  document.getElementById('levels').addEventListener('click', function (e) {
+    var t = e.target.closest('button'); if (!t) return;
+    levelKey = t.dataset.level; MG.store.set('ms.level', levelKey); setLevelUI(); newGame();
+  });
+  function setLevelUI() {
+    document.querySelectorAll('#levels button').forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.level === levelKey ? 'true' : 'false'); });
+  }
+  var rzTimer = null;
+  window.addEventListener('resize', function () { clearTimeout(rzTimer); rzTimer = setTimeout(function () { if (!started) newGame(); else fitCellSize(); }, 150); });
+
+  window.__ms = { state: function () { return { cells: cells, cols: cols, rows: rows, over: over, started: started, mineCount: mineCount, revealed: revealed }; } };
+  setLevelUI(); newGame();
+})();
+</script>
+</body>
+</html>

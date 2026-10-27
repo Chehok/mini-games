@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>스도쿠 · Mini Games</title>
+  <meta name="description" content="정답이 하나뿐인 스도쿠 퍼즐. 쉬움·보통·어려움, 메모 모드, 같은 숫자 강조, 타이머를 지원해요.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="stylesheet" href="../assets/style.css">
+  <style>
+    .board-wrap { container-type: inline-size; width: min(100%, 460px); margin: 0 auto; }
+    .board {
+      display: grid; grid-template-columns: repeat(9, 1fr); aspect-ratio: 1;
+      border: 3px solid var(--text); border-radius: 6px; overflow: hidden; background: var(--surface);
+      user-select: none; -webkit-user-select: none; touch-action: manipulation;
+    }
+    .cell {
+      position: relative; display: flex; align-items: center; justify-content: center;
+      border: 0; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
+      background: var(--surface); padding: 0; margin: 0; border-radius: 0;
+      font-size: 5.6cqw; font-weight: 600; color: var(--accent); line-height: 1;
+    }
+    .cell:nth-child(9n+3), .cell:nth-child(9n+6) { border-right: 2px solid var(--text); }
+    .cell:nth-child(9n) { border-right: 0; }
+    .cell:nth-child(n+19):nth-child(-n+27), .cell:nth-child(n+46):nth-child(-n+54) { border-bottom: 2px solid var(--text); }
+    .cell:nth-child(n+73) { border-bottom: 0; }
+    .cell.given { color: var(--text); font-weight: 800; }
+    .cell.peer { background: color-mix(in srgb, var(--accent) 9%, var(--surface)); }
+    .cell.same { background: color-mix(in srgb, var(--accent) 28%, var(--surface)); }
+    .cell.sel { background: color-mix(in srgb, var(--accent) 45%, var(--surface)); }
+    .cell.wrong { color: var(--bad); background: color-mix(in srgb, var(--bad) 18%, var(--surface)); }
+    .cell.wrong.sel { background: color-mix(in srgb, var(--bad) 35%, var(--surface)); }
+    .cell:focus-visible { outline-offset: -3px; z-index: 1; }
+    .notes { position: absolute; inset: 1px; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr);
+      font-size: 2.5cqw; font-weight: 600; color: var(--muted); }
+    .notes span { display: flex; align-items: center; justify-content: center; }
+    .notes span.hl { color: var(--accent); font-weight: 800; }
+    .pad { display: grid; grid-template-columns: repeat(9, 1fr); gap: 5px; width: min(100%, 460px); margin: 12px auto 0; }
+    .pad button {
+      position: relative; padding: 0; aspect-ratio: 3 / 4; max-height: 64px; width: 100%;
+      font-size: 1.35rem; font-weight: 800; border-radius: 10px;
+    }
+    .pad button small { position: absolute; bottom: 3px; left: 0; right: 0; font-size: .6rem; color: var(--muted); font-weight: 600; }
+    .pad button.done { opacity: .3; }
+    .pad.notes-on button { color: var(--accent); }
+    .tools { display: flex; gap: 8px; justify-content: center; margin-top: 12px; flex-wrap: wrap; }
+  </style>
+</head>
+<body data-game="sudoku">
+  <header class="site-header">
+    <a class="back" href="../">← 게임 목록</a>
+    <h1>🔢 스도쿠</h1>
+    <span class="spacer"></span>
+  </header>
+  <main class="game">
+    <div class="seg-wrap">
+      <div class="seg" id="levels" role="group" aria-label="난이도">
+        <button data-level="easy" aria-pressed="false">쉬움</button>
+        <button data-level="normal" aria-pressed="true">보통</button>
+        <button data-level="hard" aria-pressed="false">어려움</button>
+      </div>
+    </div>
+    <div class="statbar">
+      <div class="stat"><span class="label">시간</span><span class="value" id="time">00:00</span></div>
+      <div class="stat"><span class="label">실수</span><span class="value" id="mistakes">0</span></div>
+    </div>
+    <div class="board-wrap"><div class="board" id="board" role="grid" aria-label="스도쿠 판"></div></div>
+    <div class="pad" id="pad"></div>
+    <div class="tools">
+      <button class="btn" id="notesBtn" aria-pressed="false">✏️ 메모 끔</button>
+      <button class="btn" id="eraseBtn">⌫ 지우기</button>
+      <button class="btn primary" id="newBtn">새 게임</button>
+    </div>
+    <p class="hint">키보드: 숫자 입력 · 방향키 이동 · N 메모 · Backspace 지우기</p>
+  </main>
+
+<script src="../assets/common.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- core logic (exposed as window.Sudoku for testing) ---------- */
+  var BOX = [], ROW = [], COL = [];
+  for (var i = 0; i < 81; i++) { ROW[i] = Math.floor(i / 9); COL[i] = i % 9; BOX[i] = Math.floor(ROW[i] / 3) * 3 + Math.floor(COL[i] / 3); }
+  var PEERS = [];
+  for (i = 0; i < 81; i++) {
+    PEERS[i] = [];
+    for (var j = 0; j < 81; j++) if (j !== i && (ROW[j] === ROW[i] || COL[j] === COL[i] || BOX[j] === BOX[i])) PEERS[i].push(j);
+  }
+
+  // Count solutions (up to `limit`) of a puzzle given as array of 81 ints (0 = empty). Optionally fills `out` with the first solution.
+  function solve(puzzle, limit, out, rnd) {
+    var g = puzzle.slice(), rows = new Array(9).fill(0), cols = new Array(9).fill(0), boxes = new Array(9).fill(0);
+    for (var k = 0; k < 81; k++) {
+      var v = g[k];
+      if (v) {
+        var b = 1 << v;
+        if ((rows[ROW[k]] & b) || (cols[COL[k]] & b) || (boxes[BOX[k]] & b)) return 0;
+        rows[ROW[k]] |= b; cols[COL[k]] |= b; boxes[BOX[k]] |= b;
+      }
+    }
+    var count = 0;
+    function rec() {
+      var best = -1, bestMask = 0, bestN = 10;
+      for (var c = 0; c < 81; c++) {
+        if (g[c]) continue;
+        var used = rows[ROW[c]] | cols[COL[c]] | boxes[BOX[c]];
+        var mask = ~used & 0x3FE, n = 0, m = mask;
+        while (m) { m &= m - 1; n++; }
+        if (n < bestN) { bestN = n; best = c; bestMask = mask; if (n <= 1) break; }
+      }
+      if (best < 0) { count++; if (out && count === 1) for (var q = 0; q < 81; q++) out[q] = g[q]; return count >= limit; }
+      if (bestN === 0) return false;
+      var digits = [];
+      for (var d = 1; d <= 9; d++) if (bestMask & (1 << d)) digits.push(d);
+      if (rnd) MG.shuffle(digits, rnd);
+      for (var t = 0; t < digits.length; t++) {
+        var dv = digits[t], bit = 1 << dv;
+        g[best] = dv; rows[ROW[best]] |= bit; cols[COL[best]] |= bit; boxes[BOX[best]] |= bit;
+        if (rec()) return true;
+        g[best] = 0; rows[ROW[best]] &= ~bit; cols[COL[best]] &= ~bit; boxes[BOX[best]] &= ~bit;
+      }
+      return false;
+    }
+    rec();
+    return count;
+  }
+
+  var CLUES = { easy: 40, normal: 32, hard: 24 };
+
+  function generate(level, rnd) {
+    rnd = rnd || Math.random;
+    var solution = new Array(81).fill(0);
+    solve(solution, 1, solution, rnd);       // random full grid
+    var puzzle = solution.slice(), order = [];
+    for (var i = 0; i < 81; i++) order.push(i);
+    MG.shuffle(order, rnd);
+    var target = CLUES[level] || 32, clues = 81;
+    for (var t = 0; t < order.length && clues > target; t++) {
+      var c = order[t], keep = puzzle[c];
+      puzzle[c] = 0;
+      if (solve(puzzle, 2) !== 1) puzzle[c] = keep; else clues--;
+    }
+    return { puzzle: puzzle, solution: solution, clues: clues };
+  }
+  window.Sudoku = { generate: generate, solve: solve };
+
+  /* ---------- UI ---------- */
+  var boardEl = document.getElementById('board'), padEl = document.getElementById('pad');
+  var timeEl = document.getElementById('time'), mistakesEl = document.getElementById('mistakes');
+  var notesBtn = document.getElementById('notesBtn');
+  var level = MG.store.get('sudoku.level', 'normal');
+  var state = null, sel = -1, notesMode = false, over = false, mistakes = 0;
+  var timer = MG.Timer(function (s) { timeEl.textContent = MG.fmtTime(s); });
+
+  var cells = [];
+  for (i = 0; i < 81; i++) {
+    var b = document.createElement('button');
+    b.className = 'cell'; b.type = 'button'; b.setAttribute('role', 'gridcell'); b.dataset.i = i;
+    b.setAttribute('aria-label', (ROW[i] + 1) + '행 ' + (COL[i] + 1) + '열');
+    boardEl.appendChild(b); cells.push(b);
+  }
+  var padBtns = [];
+  for (var n = 1; n <= 9; n++) {
+    var pb = document.createElement('button');
+    pb.className = 'btn'; pb.type = 'button'; pb.dataset.n = n;
+    pb.innerHTML = n + '<small></small>';
+    padEl.appendChild(pb); padBtns.push(pb);
+  }
+
+  function setLevelUI() {
+    document.querySelectorAll('#levels button').forEach(function (btn) {
+      btn.setAttribute('aria-pressed', btn.dataset.level === level ? 'true' : 'false');
+    });
+  }
+
+  function newGame() {
+    var g = generate(level);
+    state = { puzzle: g.puzzle, solution: g.solution, vals: g.puzzle.slice(), notes: new Array(81).fill(0) };
+    sel = -1; over = false; mistakes = 0; mistakesEl.textContent = '0';
+    timer.reset(); timer.start();
+    render();
+  }
+
+  function render() {
+    var sv = sel >= 0 ? state.vals[sel] : 0;
+    var counts = new Array(10).fill(0);
+    for (var c = 0; c < 81; c++) {
+      var el = cells[c], v = state.vals[c], cls = 'cell';
+      if (state.puzzle[c]) cls += ' given';
+      if (sel >= 0) {
+        if (c === sel) cls += ' sel';
+        else if (sv && v === sv) cls += ' same';
+        else if (ROW[c] === ROW[sel] || COL[c] === COL[sel] || BOX[c] === BOX[sel]) cls += ' peer';
+      }
+      if (v && !state.puzzle[c] && v !== state.solution[c]) cls += ' wrong';
+      el.className = cls;
+      if (v) { el.textContent = v; counts[v]++; }
+      else if (state.notes[c]) {
+        var h = '<span class="notes">';
+        for (var d = 1; d <= 9; d++) h += '<span' + ((state.notes[c] & (1 << d)) && sv === d ? ' class="hl"' : '') + '>' + ((state.notes[c] & (1 << d)) ? d : '') + '</span>';
+        el.innerHTML = h + '</span>';
+      } else el.textContent = '';
+    }
+    for (n = 1; n <= 9; n++) {
+      var left = 9 - counts[n];
+      padBtns[n - 1].querySelector('small').textContent = left > 0 ? left : '';
+      padBtns[n - 1].classList.toggle('done', left <= 0);
+    }
+    padEl.classList.toggle('notes-on', notesMode);
+    notesBtn.setAttribute('aria-pressed', notesMode ? 'true' : 'false');
+    notesBtn.textContent = notesMode ? '✏️ 메모 켬' : '✏️ 메모 끔';
+  }
+
+  function select(i) { sel = i; render(); }
+
+  function input(n) {
+    if (over || sel < 0 || state.puzzle[sel]) return;
+    if (notesMode) {
+      if (state.vals[sel]) return;
+      state.notes[sel] ^= (1 << n);
+    } else {
+      if (state.vals[sel] === n) { state.vals[sel] = 0; }
+      else {
+        state.vals[sel] = n; state.notes[sel] = 0;
+        if (n !== state.solution[sel]) { mistakes++; mistakesEl.textContent = mistakes; }
+        else PEERS[sel].forEach(function (p) { state.notes[p] &= ~(1 << n); });
+      }
+    }
+    render(); checkWin();
+  }
+
+  function erase() {
+    if (over || sel < 0 || state.puzzle[sel]) return;
+    state.vals[sel] = 0; state.notes[sel] = 0; render();
+  }
+
+  function checkWin() {
+    for (var c = 0; c < 81; c++) if (state.vals[c] !== state.solution[c]) return;
+    over = true; timer.stop();
+    var lvl = { easy: '쉬움', normal: '보통', hard: '어려움' }[level];
+    var key = 'sudoku.best.' + level, best = MG.store.get(key, null), secs = Math.floor(timer.seconds), rec = '';
+    if (best === null || secs < best) { MG.store.set(key, secs); rec = best === null ? '' : '\n🏆 새 기록!'; }
+    MG.dialog({
+      title: '🎉 완성!', text: '난이도 ' + lvl + ' · 시간 ' + MG.fmtTime(secs) + ' · 실수 ' + mistakes + '번' + rec,
+      buttons: [{ label: '새 게임', primary: true, onClick: newGame }, { label: '닫기' }]
+    });
+  }
+
+  boardEl.addEventListener('click', function (e) {
+    var t = e.target.closest('.cell'); if (t) select(+t.dataset.i);
+  });
+  padEl.addEventListener('click', function (e) {
+    var t = e.target.closest('button'); if (t) input(+t.dataset.n);
+  });
+  notesBtn.addEventListener('click', function () { notesMode = !notesMode; render(); });
+  document.getElementById('eraseBtn').addEventListener('click', erase);
+  document.getElementById('newBtn').addEventListener('click', newGame);
+  document.getElementById('levels').addEventListener('click', function (e) {
+    var t = e.target.closest('button'); if (!t) return;
+    level = t.dataset.level; MG.store.set('sudoku.level', level); setLevelUI(); newGame();
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (document.querySelector('.overlay.show')) return;
+    var k = e.key;
+    if (k >= '1' && k <= '9') { input(+k); e.preventDefault(); }
+    else if (k === 'Backspace' || k === 'Delete' || k === '0') { erase(); e.preventDefault(); }
+    else if (k === 'n' || k === 'N' || k === 'ㅜ') { notesMode = !notesMode; render(); }
+    else if (k.indexOf('Arrow') === 0) {
+      e.preventDefault();
+      if (sel < 0) { select(40); return; }
+      var r = ROW[sel], c = COL[sel];
+      if (k === 'ArrowUp') r = (r + 8) % 9; else if (k === 'ArrowDown') r = (r + 1) % 9;
+      else if (k === 'ArrowLeft') c = (c + 8) % 9; else c = (c + 1) % 9;
+      select(r * 9 + c); cells[r * 9 + c].focus();
+    }
+  });
+
+  document.addEventListener('visibilitychange', function () {
+    if (over || !state) return;
+    if (document.hidden) timer.stop(); else timer.start();
+  });
+
+  setLevelUI(); newGame();
+})();
+</script>
+</body>
+</html>

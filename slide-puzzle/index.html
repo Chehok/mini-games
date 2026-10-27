@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>슬라이드 퍼즐 · Mini Games</title>
+  <meta name="description" content="타일을 밀어 숫자를 순서대로 맞추는 슬라이드 퍼즐. 3x3, 4x4, 5x5 크기를 항상 풀 수 있게 섞어 드려요.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="stylesheet" href="../assets/style.css">
+  <style>
+    .wrap { container-type: inline-size; width: min(100%, 440px); margin: 0 auto; }
+    .board {
+      --n: 3; position: relative; aspect-ratio: 1; padding: 2cqw; border-radius: 14px;
+      background: var(--surface-2); border: 1px solid var(--border); touch-action: manipulation; user-select: none; -webkit-user-select: none;
+    }
+    .inner { position: relative; width: 100%; height: 100%; }
+    .tile {
+      position: absolute; left: 0; top: 0; width: calc(100% / var(--n)); height: calc(100% / var(--n));
+      transform: translate(calc(var(--c) * 100%), calc(var(--r) * 100%)); transition: transform .14s ease-out;
+      padding: 0; border: 0; background: none;
+    }
+    .tile > span {
+      position: absolute; inset: 1.1cqw; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+      background: var(--accent); color: var(--accent-text); font-weight: 800; font-size: calc(18cqw / var(--n) * 1.9);
+      box-shadow: 0 2px 0 rgba(0,0,0,.18); transition: background .2s, filter .2s;
+    }
+    .tile.ok > span { filter: brightness(1.15) saturate(1.1); }
+    .tile:hover > span { filter: brightness(1.1); }
+    .board.won .tile > span { background: var(--good); }
+  </style>
+</head>
+<body data-game="slide">
+  <header class="site-header">
+    <a class="back" href="../">← 게임 목록</a>
+    <h1>🧩 슬라이드 퍼즐</h1>
+    <span class="spacer"></span>
+  </header>
+  <main class="game">
+    <div class="seg-wrap">
+      <div class="seg" id="sizes" role="group" aria-label="크기">
+        <button data-n="3" aria-pressed="false">3×3</button>
+        <button data-n="4" aria-pressed="true">4×4</button>
+        <button data-n="5" aria-pressed="false">5×5</button>
+      </div>
+    </div>
+    <div class="statbar">
+      <div class="stat"><span class="label">이동</span><span class="value" id="moves">0</span></div>
+      <div class="stat"><span class="label">시간</span><span class="value" id="time">00:00</span></div>
+      <div class="stat"><span class="label">최고 기록</span><span class="value" id="best">-</span></div>
+    </div>
+    <div class="wrap"><div class="board" id="board" role="group" aria-label="슬라이드 퍼즐 판"><div class="inner" id="inner"></div></div></div>
+    <div class="toolbar"><button class="btn primary" id="newBtn">다시 섞기</button></div>
+    <p class="hint">타일을 탭하거나 방향키로 밀어 보세요. (방향키 = 타일이 움직이는 방향)</p>
+  </main>
+
+<script src="../assets/common.js"></script>
+<script>
+(function () {
+  'use strict';
+  var boardEl = document.getElementById('board'), inner = document.getElementById('inner');
+  var movesEl = document.getElementById('moves'), timeEl = document.getElementById('time'), bestEl = document.getElementById('best');
+  var n = +MG.store.get('slide.n', 4); if ([3, 4, 5].indexOf(n) < 0) n = 4;
+  var board, tileEls, moves, over, started;   // board[pos] = tile number (0 = blank)
+  var timer = MG.Timer(function (s) { timeEl.textContent = MG.fmtTime(s); });
+
+  function inversions(arr) {
+    var inv = 0;
+    for (var i = 0; i < arr.length; i++) for (var j = i + 1; j < arr.length; j++) if (arr[i] && arr[j] && arr[i] > arr[j]) inv++;
+    return inv;
+  }
+  // Goal state: 1..n*n-1, blank last.
+  function isSolvable(arr, size) {
+    var inv = inversions(arr);
+    if (size % 2 === 1) return inv % 2 === 0;
+    var blankRowFromBottom = size - Math.floor(arr.indexOf(0) / size);
+    return (inv + blankRowFromBottom) % 2 === 1;
+  }
+  function isSolved(arr) {
+    for (var i = 0; i < arr.length - 1; i++) if (arr[i] !== i + 1) return false;
+    return arr[arr.length - 1] === 0;
+  }
+  function shuffled(size) {
+    var arr;
+    do {
+      arr = []; for (var i = 1; i < size * size; i++) arr.push(i); arr.push(0);
+      MG.shuffle(arr);
+      if (!isSolvable(arr, size)) {
+        // swap two non-blank tiles to flip parity
+        var a = arr[0] === 0 ? 1 : 0, b = a + 1; if (arr[b] === 0) b++;
+        var t = arr[a]; arr[a] = arr[b]; arr[b] = t;
+      }
+    } while (isSolved(arr));
+    return arr;
+  }
+  window.SlidePuzzle = { isSolvable: isSolvable, shuffled: shuffled, isSolved: isSolved };
+
+  function build() {
+    inner.innerHTML = ''; tileEls = {};
+    boardEl.style.setProperty('--n', n); boardEl.classList.remove('won');
+    for (var v = 1; v < n * n; v++) {
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'tile'; b.dataset.v = v;
+      b.innerHTML = '<span>' + v + '</span>'; b.setAttribute('aria-label', v + '번 타일');
+      inner.appendChild(b); tileEls[v] = b;
+    }
+  }
+  function place() {
+    board.forEach(function (v, pos) {
+      if (!v) return;
+      var el = tileEls[v];
+      el.style.setProperty('--r', Math.floor(pos / n)); el.style.setProperty('--c', pos % n);
+      el.classList.toggle('ok', v === pos + 1);
+    });
+  }
+  function showBest() {
+    var b = MG.store.get('slide.best.' + n, null);
+    bestEl.textContent = b ? b.moves + '번' : '-';
+  }
+
+  function newGame() {
+    board = shuffled(n); moves = 0; over = false; started = false;
+    timer.reset(); movesEl.textContent = 0; build(); place(); showBest();
+  }
+
+  // Move the tile(s) between `pos` and the blank (same row/col) toward the blank.
+  function tapAt(pos) {
+    if (over) return;
+    var blank = board.indexOf(0), br = Math.floor(blank / n), bc = blank % n, r = Math.floor(pos / n), c = pos % n;
+    if (pos === blank || (r !== br && c !== bc)) return;
+    var step = r === br ? (c < bc ? 1 : -1) : (r < br ? n : -n);
+    var cur = blank, count = 0;
+    while (cur !== pos) { board[cur] = board[cur - step]; cur -= step; count++; }
+    board[pos] = 0;
+    afterMove(count);
+  }
+  function arrow(dir) {
+    // tiles move in `dir`; so the tile on the opposite side of the blank moves into it
+    var blank = board.indexOf(0), r = Math.floor(blank / n), c = blank % n;
+    if (dir === 'left') c += 1; else if (dir === 'right') c -= 1; else if (dir === 'up') r += 1; else r -= 1;
+    if (r < 0 || r >= n || c < 0 || c >= n) return;
+    tapAt(r * n + c);
+  }
+  function afterMove() {
+    moves++; movesEl.textContent = moves;
+    if (!started) { started = true; timer.start(); }
+    place();
+    if (isSolved(board)) {
+      over = true; timer.stop(); boardEl.classList.add('won');
+      var secs = Math.floor(timer.seconds), prev = MG.store.get('slide.best.' + n, null), extra = '';
+      if (!prev || moves < prev.moves) { MG.store.set('slide.best.' + n, { moves: moves, secs: secs }); extra = prev ? '\n🏆 새 기록!' : ''; }
+      showBest();
+      setTimeout(function () {
+        MG.dialog({
+          title: '🎉 완성!', text: n + '×' + n + ' · 이동 ' + moves + '번 · ' + MG.fmtTime(secs) + extra,
+          buttons: [{ label: '다시 하기', primary: true, onClick: newGame }, { label: '닫기' }]
+        });
+      }, 250);
+    }
+  }
+
+  inner.addEventListener('click', function (e) {
+    var t = e.target.closest('.tile'); if (!t) return;
+    tapAt(board.indexOf(+t.dataset.v));
+  });
+  var KEYS = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
+  document.addEventListener('keydown', function (e) {
+    if (e.ctrlKey || e.metaKey || e.altKey || document.querySelector('.overlay.show')) return;
+    var d = KEYS[e.key]; if (d) { e.preventDefault(); arrow(d); }
+  });
+  document.getElementById('newBtn').addEventListener('click', newGame);
+  function setSizeUI() { document.querySelectorAll('#sizes button').forEach(function (b) { b.setAttribute('aria-pressed', +b.dataset.n === n ? 'true' : 'false'); }); }
+  document.getElementById('sizes').addEventListener('click', function (e) {
+    var t = e.target.closest('button'); if (!t) return;
+    n = +t.dataset.n; MG.store.set('slide.n', n); setSizeUI(); newGame();
+  });
+
+  window.__slide = { board: function () { return board.slice(); }, n: function () { return n; }, tapAt: tapAt };
+  setSizeUI(); newGame();
+})();
+</script>
+</body>
+</html>
