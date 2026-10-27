@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27><text y=%27.9em%27 font-size=%2790%27>🧰</text></svg>">
+  <title>진행 도구 · Mini Games</title>
+  <meta name="description" content="모임 진행에 필요한 도구 모음: 랜덤 팀 나누기, 사다리 타기, 룰렛, 순서 정하기, 랜덤 뽑기.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="stylesheet" href="../assets/style.css">
+  <style>
+    main.game.wide { max-width: 640px; }
+    .tabs { display: flex; justify-content: center; margin-bottom: 12px; overflow-x: auto; }
+    .tabs .seg { flex-wrap: nowrap; }
+    .tabs .seg button { padding: 8px 10px; white-space: nowrap; font-size: .9rem; }
+    .teamgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-top: 10px; }
+    .team { background: var(--surface-2); border-radius: 14px; padding: 10px 12px; border-left: 6px solid var(--c, var(--accent)); }
+    .team h3 { margin: 0 0 4px; font-size: .95rem; }
+    .team ul { margin: 0; padding-left: 1.1em; }
+    .team li { font-weight: 600; }
+    canvas { display: block; width: 100%; touch-action: manipulation; }
+    .wheelbox { position: relative; max-width: 360px; margin: 6px auto; }
+    .pointer { position: absolute; top: -6px; left: 50%; transform: translateX(-50%); font-size: 2rem; line-height: 1; color: var(--bad); text-shadow: 0 1px 2px rgba(0,0,0,.3); z-index: 2; }
+    .result { text-align: center; font-size: 1.7rem; font-weight: 900; min-height: 2.2em; margin: 6px 0; color: var(--accent); }
+    .ol { list-style: none; counter-reset: n; padding: 0; margin: 10px 0 0; display: grid; gap: 6px; }
+    .ol li { counter-increment: n; display: flex; gap: 10px; align-items: center; background: var(--surface-2); border-radius: 12px; padding: 10px 14px; font-weight: 800; }
+    .ol li::before { content: counter(n); display: grid; place-items: center; width: 1.8em; height: 1.8em; border-radius: 50%; background: var(--accent); color: var(--accent-text); font-size: .9rem; }
+    .pick { display: inline-block; padding: 8px 16px; margin: 4px; border-radius: 999px; font-weight: 900; font-size: 1.2rem; background: var(--accent); color: var(--accent-text); }
+    .twocol { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .ladder-in { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
+    .ladder-in .input { padding: 6px 8px; font-size: .9rem; }
+  </style>
+</head>
+<body data-game="tools">
+  <header class="site-header">
+    <a class="back" href="../">← 게임 목록</a>
+    <h1>🧰 진행 도구</h1>
+    <span class="spacer"></span>
+  </header>
+  <main class="game wide">
+    <div class="tabs"><div class="seg" id="tabs" role="tablist" aria-label="도구 선택">
+      <button data-t="team" aria-pressed="true">팀 나누기</button>
+      <button data-t="ladder" aria-pressed="false">사다리</button>
+      <button data-t="wheel" aria-pressed="false">룰렛</button>
+      <button data-t="draw" aria-pressed="false">순서·뽑기</button>
+    </div></div>
+
+    <!-- 팀 나누기 -->
+    <section id="tab-team">
+      <div class="panel">
+        <h2>이름 목록</h2>
+        <textarea class="input names" id="namesA" placeholder="이름을 한 줄에 하나씩 (또는 쉼표로 구분)&#10;균형 맞추기: 이름/태그 로 쓰면 태그별로 팀에 고르게 나눠요 (예: 민수/남)" aria-label="이름 목록"></textarea>
+        <div class="row center" style="align-items:center;margin-top:10px">
+          <span class="muted" style="font-size:.85rem;font-weight:700">팀 수</span>
+          <button class="btn small" id="tMinus" type="button" aria-label="팀 수 줄이기">−</button><b id="tCnt" style="min-width:2.5ch;text-align:center;font-size:1.2rem">3</b><button class="btn small" id="tPlus" type="button" aria-label="팀 수 늘리기">＋</button>
+        </div>
+        <button class="btn primary big wide" id="split" type="button" style="margin-top:12px">🎲 팀 나누기</button>
+        <p class="hint" id="teamInfo"></p>
+        <div class="teamgrid" id="teams"></div>
+        <div class="toolbar" id="teamTools" hidden><button class="btn small" id="copyTeams" type="button">📋 결과 복사</button></div>
+      </div>
+    </section>
+
+    <!-- 사다리 -->
+    <section id="tab-ladder" hidden>
+      <div class="panel">
+        <div class="row center" style="align-items:center;margin-bottom:6px">
+          <span class="muted" style="font-size:.85rem;font-weight:700">인원</span>
+          <button class="btn small" id="lMinus" type="button" aria-label="인원 줄이기">−</button><b id="lCnt" style="min-width:2.5ch;text-align:center;font-size:1.2rem">4</b><button class="btn small" id="lPlus" type="button" aria-label="인원 늘리기">＋</button>
+        </div>
+        <details><summary class="muted" style="cursor:pointer;font-weight:700;font-size:.9rem">이름 / 결과 입력</summary><div class="ladder-in" id="lIn"></div></details>
+        <canvas id="ladder" aria-label="사다리"></canvas>
+        <div class="chips center" id="lBtns" style="margin:8px 0"></div>
+        <div class="row center"><button class="btn" id="lAll" type="button">▶ 전체 결과 보기</button><button class="btn" id="lNew" type="button">🔀 사다리 새로 만들기</button></div>
+        <ul class="tr-list" id="lRes" hidden></ul>
+      </div>
+    </section>
+
+    <!-- 룰렛 -->
+    <section id="tab-wheel" hidden>
+      <div class="panel">
+        <h2>룰렛 항목</h2>
+        <textarea class="input names" id="wItems" placeholder="항목을 한 줄에 하나씩 (또는 쉼표로 구분)" aria-label="룰렛 항목"></textarea>
+        <label class="row" style="align-items:center;margin-top:8px;font-weight:700;font-size:.9rem"><input type="checkbox" id="wRemove"> 뽑힌 항목은 룰렛에서 빼기</label>
+        <div class="wheelbox"><div class="pointer" aria-hidden="true">▼</div><canvas id="wheel" width="360" height="360" aria-label="룰렛"></canvas></div>
+        <div class="result" id="wRes" aria-live="polite"></div>
+        <button class="btn primary big wide" id="spin" type="button">🎡 돌리기!</button>
+      </div>
+    </section>
+
+    <!-- 순서·뽑기 -->
+    <section id="tab-draw" hidden>
+      <div class="panel">
+        <h2>이름 목록</h2>
+        <textarea class="input names" id="namesB" placeholder="이름을 한 줄에 하나씩 (또는 쉼표로 구분)" aria-label="이름 목록"></textarea>
+        <button class="btn primary big wide" id="order" type="button" style="margin-top:12px">🔢 순서 정하기</button>
+        <ol class="ol" id="orderList"></ol>
+      </div>
+      <div class="panel">
+        <h2>랜덤 뽑기</h2>
+        <div class="row center" style="align-items:center">
+          <span class="muted" style="font-size:.85rem;font-weight:700">뽑을 인원</span>
+          <button class="btn small" id="kMinus" type="button" aria-label="줄이기">−</button><b id="kCnt" style="min-width:2.5ch;text-align:center;font-size:1.2rem">1</b><button class="btn small" id="kPlus" type="button" aria-label="늘리기">＋</button>
+        </div>
+        <label class="row" style="align-items:center;margin:8px 0;font-weight:700;font-size:.9rem;justify-content:center"><input type="checkbox" id="kExclude"> 이미 뽑힌 사람은 제외</label>
+        <button class="btn primary big wide" id="pick" type="button">🎯 뽑기!</button>
+        <div class="result" id="pickRes" style="min-height:3em" aria-live="polite"></div>
+        <p class="hint" id="pickInfo"></p>
+      </div>
+    </section>
+  </main>
+
+<script src="../assets/common.js"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = function (s) { return document.querySelector(s); };
+  var COLORS = ['#ef4444', '#3b82f6', '#22a06b', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#64748b', '#84cc16'];
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function plain(list) { return list.map(function (s) { return s.split('/')[0].trim(); }).filter(Boolean); }
+  function parseList(txt) { return String(txt).split(/[\n,]+/).map(function (s) { return s.trim(); }).filter(Boolean); }
+  function css(name) { return getComputedStyle(document.body).getPropertyValue(name).trim(); }
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- 탭 ---------- */
+  var TABS = ['team', 'ladder', 'wheel', 'draw'];
+  function showTab(t) {
+    if (TABS.indexOf(t) < 0) t = 'team';
+    TABS.forEach(function (x) { $('#tab-' + x).hidden = x !== t; });
+    document.querySelectorAll('#tabs button').forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.t === t ? 'true' : 'false'); });
+    try { history.replaceState(null, '', '?tab=' + t); } catch (e) { /* ignore */ }
+    if (t === 'ladder') drawLadder(); if (t === 'wheel') drawWheel(wAngle);
+  }
+  $('#tabs').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) showTab(b.dataset.t); });
+
+  /* ---------- 공유 이름 목록 ---------- */
+  var names = MG.store.get('tools.names', '');
+  ['#namesA', '#namesB'].forEach(function (id) {
+    $(id).value = names;
+    $(id).addEventListener('input', function () { names = this.value; MG.store.set('tools.names', names); $('#namesA').value = names; $('#namesB').value = names; });
+  });
+
+  /* ---------- 팀 나누기 ---------- */
+  var tn = MG.store.get('tools.teamN', 3), lastTeams = null;
+  function setTn(n) { tn = Math.max(2, Math.min(10, n)); $('#tCnt').textContent = tn; MG.store.set('tools.teamN', tn); }
+  $('#tMinus').onclick = function () { setTn(tn - 1); }; $('#tPlus').onclick = function () { setTn(tn + 1); }; setTn(tn);
+  function splitTeams(list, n) {
+    // 이름/태그 형식: 태그별로 섞은 뒤, 팀에 돌아가며 한 명씩 배정 → 인원도 태그도 고르게
+    var groups = {}, order = [];
+    list.forEach(function (s) {
+      var p = s.split('/'), name = p[0].trim(), tag = (p[1] || '').trim();
+      if (!name) return;
+      if (!groups[tag]) { groups[tag] = []; order.push(tag); }
+      groups[tag].push(name);
+    });
+    var teams = []; for (var i = 0; i < n; i++) teams.push([]);
+    var ptr = Math.floor(Math.random() * n);
+    MG.shuffle(order).forEach(function (tag) {
+      MG.shuffle(groups[tag]).forEach(function (name) { teams[ptr % n].push(name); ptr++; });
+    });
+    return teams.map(function (t) { return MG.shuffle(t); });
+  }
+  $('#split').onclick = function () {
+    var list = parseList($('#namesA').value);
+    if (list.length < 2) { MG.toast('이름을 두 명 이상 입력해 주세요'); return; }
+    var n = Math.min(tn, list.length);
+    lastTeams = splitTeams(list, n);
+    $('#teams').innerHTML = lastTeams.map(function (t, i) { return '<div class="team" style="--c:' + COLORS[i % COLORS.length] + '"><h3>' + (i + 1) + '팀 · ' + t.length + '명</h3><ul>' + t.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></div>'; }).join('');
+    $('#teamInfo').textContent = '총 ' + list.length + '명을 ' + n + '팀으로 나눴어요. 마음에 안 들면 다시 눌러 보세요!';
+    $('#teamTools').hidden = false;
+  };
+  $('#copyTeams').onclick = function () {
+    if (!lastTeams) return;
+    var txt = lastTeams.map(function (t, i) { return (i + 1) + '팀: ' + t.join(', '); }).join('\n');
+    MG.copy(txt).then(function (ok) { MG.toast(ok ? '결과를 복사했어요' : '복사에 실패했어요'); });
+  };
+
+  /* ---------- 사다리 ---------- */
+  var ln = MG.store.get('tools.ladderN', 4), lNames = MG.store.get('tools.ladderNames', []), lRes = MG.store.get('tools.ladderRes', []);
+  var LEVELS = 12, rungs = [], revealed = {}, traces = {}, anim = null;
+  var cv = $('#ladder'), ctx = cv.getContext('2d');
+  function ladName(i) { return (lNames[i] || '').trim() || (i + 1) + '번'; }
+  function ladRes(i) { return (lRes[i] || '').trim() || (i === 0 ? '당첨' : '꽝'); }
+  function buildLadder() {
+    rungs = [];
+    for (var l = 0; l < LEVELS; l++) {
+      var row = [];
+      for (var c = 0; c < ln - 1; c++) row.push(!(c > 0 && row[c - 1]) && Math.random() < 0.5);
+      rungs.push(row);
+    }
+    // 모든 인접 세로줄 사이에 가로줄이 최소 하나는 있도록 보정
+    for (var c2 = 0; c2 < ln - 1; c2++) {
+      var has = rungs.some(function (r) { return r[c2]; });
+      if (!has) { var l2 = Math.floor(Math.random() * LEVELS); if (!(c2 > 0 && rungs[l2][c2 - 1]) && !rungs[l2][c2 + 1]) rungs[l2][c2] = true; }
+    }
+    revealed = {}; traces = {}; $('#lRes').hidden = true;
+  }
+  function trace(s) {
+    var pos = s, pts = [[pos, 0]];
+    for (var l = 0; l < LEVELS; l++) {
+      pts.push([pos, l + 1]);
+      if (pos < ln - 1 && rungs[l][pos]) { pos++; pts.push([pos, l + 1]); }
+      else if (pos > 0 && rungs[l][pos - 1]) { pos--; pts.push([pos, l + 1]); }
+    }
+    pts.push([pos, LEVELS + 1]);
+    return { pts: pts, end: pos };
+  }
+  var geo = {};
+  function layout() {
+    var pw = cv.parentNode.clientWidth, w = pw > 90 ? Math.min(pw - 28, 600) : 340, h = 360, dpr = window.devicePixelRatio || 1;
+    cv.style.height = h + 'px'; cv.style.width = w + 'px'; cv.style.margin = '8px auto';
+    cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    geo = { w: w, h: h, top: 34, bot: h - 34, padX: 28 };
+    geo.dx = ln > 1 ? (w - geo.padX * 2) / (ln - 1) : 0; geo.dy = (geo.bot - geo.top) / (LEVELS + 1);
+  }
+  function px(c, l) { return [geo.padX + c * geo.dx, geo.top + l * geo.dy]; }
+  function label(txt, x, y, color, bold) {
+    var max = Math.max(3, Math.floor(geo.dx / 11)); var t = txt.length > max ? txt.slice(0, max - 1) + '…' : txt;
+    ctx.fillStyle = color; ctx.font = (bold ? '800 ' : '600 ') + '13px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(t, x, y);
+  }
+  function drawLadder(partial) {
+    layout();
+    var text = css('--text') || '#222', border = css('--border') || '#ccc', muted = css('--muted') || '#888';
+    ctx.clearRect(0, 0, geo.w, geo.h);
+    ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.strokeStyle = border;
+    for (var c = 0; c < ln; c++) { var a = px(c, 0), b = px(c, LEVELS + 1); ctx.beginPath(); ctx.moveTo(a[0], geo.top); ctx.lineTo(b[0], geo.bot); ctx.stroke(); }
+    for (var l = 0; l < LEVELS; l++) for (var c2 = 0; c2 < ln - 1; c2++) if (rungs[l][c2]) { var p = px(c2, l + 1), q = px(c2 + 1, l + 1); ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.lineTo(q[0], q[1]); ctx.stroke(); }
+    // 지나온 길
+    Object.keys(traces).forEach(function (k) { drawPath(traces[k].pts, COLORS[+k % COLORS.length], 1); });
+    if (partial) drawPath(partial.pts, partial.color, partial.frac);
+    for (var i = 0; i < ln; i++) {
+      var tp = px(i, 0);
+      label(ladName(i), tp[0], 14, COLORS[i % COLORS.length], true);
+    }
+    for (var e = 0; e < ln; e++) {
+      var who = -1; Object.keys(traces).forEach(function (k) { if (traces[k].end === e) who = +k; });
+      var bp = px(e, 0);
+      label(who >= 0 ? ladRes(e) : '?', bp[0], geo.h - 14, who >= 0 ? COLORS[who % COLORS.length] : muted, true);
+    }
+  }
+  function drawPath(pts, color, frac) {
+    // 총 길이 기준으로 frac 만큼만 그려요
+    var segs = [], total = 0;
+    for (var i = 1; i < pts.length; i++) { var a = px(pts[i - 1][0], pts[i - 1][1]), b = px(pts[i][0], pts[i][1]); var len = Math.abs(b[0] - a[0]) + Math.abs(b[1] - a[1]); segs.push([a, b, len]); total += len; }
+    var want = total * frac, used = 0;
+    ctx.strokeStyle = color; ctx.lineWidth = 5; ctx.lineJoin = 'round'; ctx.beginPath();
+    var first = true;
+    for (var s = 0; s < segs.length; s++) {
+      var A = segs[s][0], B = segs[s][1], L = segs[s][2];
+      if (first) { ctx.moveTo(A[0], A[1]); first = false; }
+      if (used + L <= want) { ctx.lineTo(B[0], B[1]); used += L; }
+      else { var t = L ? (want - used) / L : 0; ctx.lineTo(A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t); break; }
+    }
+    ctx.stroke();
+  }
+  function runTrace(i, done) {
+    var t = trace(i), color = COLORS[i % COLORS.length];
+    cancelAnimationFrame(anim);
+    if (reduce) { traces[i] = t; drawLadder(); done && done(); showResults(); return; }
+    var start = performance.now(), dur = 1800;
+    (function step(now) {
+      var f = Math.min(1, (now - start) / dur);
+      drawLadder({ pts: t.pts, color: color, frac: f });
+      if (f < 1) anim = requestAnimationFrame(step); else { traces[i] = t; drawLadder(); showResults(); done && done(); }
+    })(start);
+  }
+  function showResults() {
+    var keys = Object.keys(traces);
+    var ul = $('#lRes'); ul.hidden = !keys.length;
+    ul.innerHTML = keys.sort(function (a, b) { return a - b; }).map(function (k) { return '<li><span style="color:' + COLORS[k % COLORS.length] + '">●</span> ' + esc(ladName(+k)) + ' → <b>' + esc(ladRes(traces[k].end)) + '</b></li>'; }).join('');
+  }
+  function drawLadderInputs() {
+    $('#lCnt').textContent = ln;
+    var h = '';
+    for (var i = 0; i < ln; i++) h += '<input class="input ln" data-i="' + i + '" maxlength="8" placeholder="' + (i + 1) + '번 이름" value="' + esc(lNames[i] || '') + '" aria-label="' + (i + 1) + '번 이름"><input class="input lr" data-i="' + i + '" maxlength="10" placeholder="' + (i === 0 ? '결과 (예: 당첨)' : '결과 (예: 꽝)') + '" value="' + esc(lRes[i] || '') + '" aria-label="' + (i + 1) + '번 결과">';
+    $('#lIn').innerHTML = h;
+    $('#lBtns').innerHTML = Array.apply(null, Array(ln)).map(function (_, i) { return '<button class="chip" type="button" data-i="' + i + '" style="border-color:' + COLORS[i % COLORS.length] + '">' + esc(ladName(i)) + ' ▶</button>'; }).join('');
+  }
+  $('#lIn').addEventListener('input', function (e) {
+    var el = e.target, i = +el.dataset.i;
+    if (el.classList.contains('ln')) lNames[i] = el.value; else lRes[i] = el.value;
+    MG.store.set('tools.ladderNames', lNames); MG.store.set('tools.ladderRes', lRes);
+    var b = $('#lBtns').children[i]; if (b && el.classList.contains('ln')) b.textContent = ladName(i) + ' ▶';
+    drawLadder(); showResults();
+  });
+  function setLn(n) { ln = Math.max(2, Math.min(10, n)); MG.store.set('tools.ladderN', ln); buildLadder(); drawLadderInputs(); drawLadder(); }
+  $('#lMinus').onclick = function () { setLn(ln - 1); }; $('#lPlus').onclick = function () { setLn(ln + 1); };
+  $('#lBtns').addEventListener('click', function (e) { var b = e.target.closest('.chip'); if (!b) return; var i = +b.dataset.i; if (traces[i]) { MG.toast('이미 결과를 봤어요'); return; } runTrace(i); });
+  $('#lAll').onclick = function () {
+    cancelAnimationFrame(anim);
+    for (var i = 0; i < ln; i++) traces[i] = trace(i);
+    drawLadder(); showResults();
+  };
+  $('#lNew').onclick = function () { cancelAnimationFrame(anim); buildLadder(); drawLadder(); showResults(); };
+  cv.addEventListener('click', function (e) {
+    var r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+    if (y > 30) return;
+    var i = Math.round((x - geo.padX) / (geo.dx || 1)); if (i < 0 || i >= ln || traces[i]) return; runTrace(i);
+  });
+  window.addEventListener('resize', function () { if (!$('#tab-ladder').hidden) drawLadder(); });
+  setLn(ln);
+
+  /* ---------- 룰렛 ---------- */
+  var wItems = MG.store.get('tools.wheel', '치킨\n피자\n떡볶이\n라면\n햄버거'), wAngle = 0, spinning = false;
+  var wc = $('#wheel'), wx = wc.getContext('2d');
+  $('#wItems').value = wItems;
+  $('#wItems').addEventListener('input', function () { wItems = this.value; MG.store.set('tools.wheel', wItems); $('#wRes').textContent = ''; drawWheel(wAngle); });
+  function drawWheel(angle) {
+    var items = parseList($('#wItems').value), n = items.length, W = wc.width, R = W / 2 - 6;
+    var surface = css('--surface') || '#fff', text = css('--text') || '#222';
+    wx.clearRect(0, 0, W, W); wx.save(); wx.translate(W / 2, W / 2);
+    if (!n) { wx.fillStyle = css('--surface-2') || '#eee'; wx.beginPath(); wx.arc(0, 0, R, 0, Math.PI * 2); wx.fill(); wx.fillStyle = css('--muted') || '#888'; wx.font = '700 20px system-ui, sans-serif'; wx.textAlign = 'center'; wx.fillText('항목을 입력하세요', 0, 6); wx.restore(); return; }
+    var seg = Math.PI * 2 / n;
+    for (var i = 0; i < n; i++) {
+      var a0 = angle + i * seg - Math.PI / 2;
+      wx.beginPath(); wx.moveTo(0, 0); wx.arc(0, 0, R, a0, a0 + seg); wx.closePath();
+      wx.fillStyle = COLORS[i % COLORS.length]; if (n > 1 && n % COLORS.length === 1 && i === n - 1) wx.fillStyle = '#94a3b8'; wx.fill();
+      wx.strokeStyle = surface; wx.lineWidth = 3; wx.stroke();
+      wx.save(); wx.rotate(a0 + seg / 2); wx.fillStyle = '#fff'; wx.textAlign = 'right'; wx.textBaseline = 'middle';
+      wx.font = '800 ' + (n > 12 ? 14 : 19) + 'px system-ui, sans-serif'; wx.shadowColor = 'rgba(0,0,0,.35)'; wx.shadowBlur = 3;
+      var t = items[i].length > 8 ? items[i].slice(0, 7) + '…' : items[i]; wx.fillText(t, R - 14, 0); wx.restore();
+    }
+    wx.beginPath(); wx.arc(0, 0, 18, 0, Math.PI * 2); wx.fillStyle = surface; wx.fill(); wx.strokeStyle = text; wx.lineWidth = 2; wx.stroke();
+    wx.restore();
+  }
+  $('#spin').onclick = function () {
+    if (spinning) return;
+    var items = parseList($('#wItems').value), n = items.length;
+    if (n < 2) { MG.toast('항목을 두 개 이상 입력해 주세요'); return; }
+    MG.unlockAudio(); spinning = true; $('#wRes').textContent = '…';
+    var seg = Math.PI * 2 / n, win = Math.floor(Math.random() * n);
+    // 포인터(맨 위)가 win 번째 조각의 가운데에 오도록: angle ≡ -(win + 0.5) * seg
+    var target = -((win + 0.3 + Math.random() * 0.4) * seg), turns = 5 + Math.floor(Math.random() * 3);
+    var from = wAngle % (Math.PI * 2), end = target - turns * Math.PI * 2;
+    var start = performance.now(), dur = reduce ? 50 : 4200;
+    (function step(now) {
+      var f = Math.min(1, (now - start) / dur), e = 1 - Math.pow(1 - f, 3);
+      wAngle = from + (end - from) * e; drawWheel(wAngle);
+      if (f < 1) requestAnimationFrame(step);
+      else {
+        spinning = false; wAngle = end;
+        $('#wRes').textContent = '🎉 ' + items[win]; MG.beep(880, 150); MG.vibrate(100);
+        if ($('#wRemove').checked) { items.splice(win, 1); $('#wItems').value = items.join('\n'); wItems = $('#wItems').value; MG.store.set('tools.wheel', wItems); setTimeout(function () { drawWheel(wAngle); }, 900); }
+      }
+    })(start);
+  };
+  drawWheel(0);
+
+  /* ---------- 순서 정하기 / 뽑기 ---------- */
+  $('#order').onclick = function () {
+    var list = plain(parseList($('#namesB').value));
+    if (list.length < 2) { MG.toast('이름을 두 명 이상 입력해 주세요'); return; }
+    $('#orderList').innerHTML = MG.shuffle(list.slice()).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('');
+  };
+  var kn = MG.store.get('tools.pickN', 1), picked = [];
+  function setKn(n) { kn = Math.max(1, Math.min(20, n)); $('#kCnt').textContent = kn; MG.store.set('tools.pickN', kn); }
+  $('#kMinus').onclick = function () { setKn(kn - 1); }; $('#kPlus').onclick = function () { setKn(kn + 1); }; setKn(kn);
+  $('#pick').onclick = function () {
+    var list = plain(parseList($('#namesB').value)), pool = $('#kExclude').checked ? list.filter(function (x) { return picked.indexOf(x) < 0; }) : list;
+    if (!pool.length) { MG.toast(list.length ? '모두 뽑혔어요! 제외 옵션을 끄거나 목록을 바꿔 보세요' : '이름을 입력해 주세요'); return; }
+    var k = Math.min(kn, pool.length), res = MG.shuffle(pool.slice()).slice(0, k);
+    if ($('#kExclude').checked) picked = picked.concat(res); else picked = [];
+    var box = $('#pickRes'), n = 0;
+    function show(arr) { box.innerHTML = arr.map(function (x) { return '<span class="pick">' + esc(x) + '</span>'; }).join(''); }
+    if (reduce) { show(res); } else {
+      var id = setInterval(function () { show(MG.shuffle(pool.slice()).slice(0, k)); if (++n >= 10) { clearInterval(id); show(res); MG.beep(880, 120); } }, 80);
+    }
+    $('#pickInfo').textContent = $('#kExclude').checked ? '지금까지 뽑힌 사람: ' + picked.length + '명 / 전체 ' + list.length + '명' : '';
+  };
+
+  var t0 = new URLSearchParams(location.search).get('tab');
+  showTab(t0);
+})();
+</script>
+</body>
+</html>

@@ -105,5 +105,72 @@
     return arr;
   };
 
+  // Short beep (WebAudio) + vibration, both best-effort.
+  var audioCtx = null;
+  MG.unlockAudio = function () {
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      if (!audioCtx) audioCtx = new AC();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    } catch (e) { /* ignore */ }
+  };
+  MG.beep = function (freq, ms, vol) {
+    try {
+      MG.unlockAudio();
+      if (!audioCtx) return;
+      var o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type = 'sine'; o.frequency.value = freq || 880;
+      g.gain.value = vol || 0.15;
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(); o.stop(audioCtx.currentTime + (ms || 150) / 1000);
+    } catch (e) { /* ignore */ }
+  };
+  MG.vibrate = function (pattern) {
+    try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (e) { /* ignore */ }
+  };
+
+  // Screen Wake Lock (keeps the phone awake during a round). Safe to call anywhere.
+  var wakeSentinel = null, wakeWanted = false;
+  function acquireWake() {
+    if (!wakeWanted || wakeSentinel || !navigator.wakeLock) return;
+    navigator.wakeLock.request('screen').then(function (s) {
+      wakeSentinel = s;
+      s.addEventListener('release', function () { wakeSentinel = null; });
+    }).catch(function () { /* ignore */ });
+  }
+  MG.wake = {
+    on: function () { wakeWanted = true; acquireWake(); },
+    off: function () { wakeWanted = false; if (wakeSentinel) { try { wakeSentinel.release(); } catch (e) { /* ignore */ } wakeSentinel = null; } }
+  };
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') acquireWake(); });
+
+  // Copy text to the clipboard (with a textarea fallback). Returns a Promise<boolean>.
+  MG.copy = function (text) {
+    function fallback() {
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = text; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+        document.body.appendChild(ta); ta.select();
+        var ok = document.execCommand('copy'); document.body.removeChild(ta);
+        return ok;
+      } catch (e) { return false; }
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text).then(function () { return true; }, function () { return fallback(); });
+    }
+    return Promise.resolve(fallback());
+  };
+  // Share via the native sheet when available, otherwise copy.
+  MG.share = function (text, title) {
+    if (navigator.share) {
+      return navigator.share({ title: title || document.title, text: text }).then(function () { return 'shared'; }, function (e) {
+        if (e && e.name === 'AbortError') return 'cancel';
+        return MG.copy(text).then(function (ok) { return ok ? 'copied' : 'fail'; });
+      });
+    }
+    return MG.copy(text).then(function (ok) { return ok ? 'copied' : 'fail'; });
+  };
+
   window.MG = MG;
 })();

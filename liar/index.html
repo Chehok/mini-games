@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27><text y=%27.9em%27 font-size=%2790%27>🤥</text></svg>">
+  <title>라이어 게임 · Mini Games</title>
+  <meta name="description" content="한 명만 주제어를 모르는 라이어! 휴대폰을 돌려 보며 대화로 라이어를 찾아내는 파티 게임. 성경 주제도 있어요.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="stylesheet" href="../assets/style.css">
+  <style>
+    .secret {
+      min-height: 220px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+      background: var(--surface); border: 3px dashed var(--accent); border-radius: 22px; padding: 20px; margin: 12px 0; width: 100%;
+      font: inherit; color: inherit; text-align: center; touch-action: manipulation;
+    }
+    .secret .big { font-size: clamp(2rem, 10vw, 3.2rem); font-weight: 900; line-height: 1.2; word-break: keep-all; }
+    .secret.liar { border-color: var(--bad); border-style: solid; }
+    .secret.liar .big { color: var(--bad); }
+    .secret.hidden .big { font-size: 1.4rem; color: var(--muted); }
+    .pname { font-size: 1.6rem; font-weight: 900; margin: 6px 0; }
+    .votegrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 10px 0; }
+    .vote { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 14px; background: var(--surface-2); border: 2px solid var(--border); font-weight: 800; touch-action: manipulation; }
+    .vote .cnt { margin-left: auto; font-size: 1.3rem; font-variant-numeric: tabular-nums; }
+    .vote.top { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 12%, var(--surface)); }
+    .verdict { font-size: 1.5rem; font-weight: 900; margin: 8px 0; }
+    .nameboxes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+  </style>
+</head>
+<body data-game="liar">
+  <header class="site-header">
+    <a class="back" href="../">← 게임 목록</a>
+    <h1>🤥 라이어 게임</h1>
+    <span class="spacer"></span>
+  </header>
+  <main class="game" id="app"></main>
+
+<script src="../assets/common.js"></script>
+<script src="words.js"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = function (s) { return document.querySelector(s); };
+  var root = $('#app');
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  var CATS = window.LIAR_DATA.map(function (c) { return { name: c.cat, emoji: c.emoji, group: c.group, words: c.words.split(',') }; });
+  var def = { n: 5, names: [], cat: '*', variant: false, mins: 3 };
+  var S = Object.assign({}, def, MG.store.get('liar.settings', {}));
+  function save() { MG.store.set('liar.settings', S); }
+  var G = null, tickId = null;
+  function pname(i) { return ((S.names[i] || '').trim()) || (i + 1) + '번'; }
+  function clearT() { clearInterval(tickId); tickId = null; }
+
+  /* ---------- 설정 ---------- */
+  function renderSetup() {
+    clearT(); MG.wake.off();
+    var h = '<div class="panel center"><div class="tr-emoji" style="margin:0">🤥</div><p class="tr-note" style="margin:4px 0 0">모두가 같은 주제어를 받지만, 단 한 명 <b>라이어</b>만 몰라요!\n설명하는 척하며 대화하고, 라이어를 찾아내세요.</p></div>';
+    h += '<div class="panel"><h2>참가 인원</h2><div class="row center" style="align-items:center"><button class="btn" id="minus" type="button" aria-label="한 명 줄이기">−</button><b id="nTxt" style="font-size:1.6rem;min-width:3.5ch;text-align:center">' + S.n + '명</b><button class="btn" id="plus" type="button" aria-label="한 명 늘리기">＋</button></div>' +
+      '<details class="panel" style="margin:10px 0 0;padding:10px"><summary>이름 입력 (선택)</summary><div class="nameboxes">' +
+      Array.apply(null, Array(S.n)).map(function (_, i) { return '<input class="input nm" data-i="' + i + '" maxlength="8" placeholder="' + (i + 1) + '번" value="' + esc(S.names[i] || '') + '" aria-label="' + (i + 1) + '번 이름">'; }).join('') + '</div></details></div>';
+    h += '<div class="panel"><h2>주제</h2><div class="chips" id="cats"><button class="chip" type="button" data-c="*" aria-pressed="' + (S.cat === '*') + '">🎲 랜덤</button>' +
+      '<button class="chip" type="button" data-c="#bible" aria-pressed="' + (S.cat === '#bible') + '">✝️ 성경 랜덤</button>' +
+      CATS.map(function (c) { return '<button class="chip" type="button" data-c="' + esc(c.name) + '" aria-pressed="' + (S.cat === c.name) + '">' + c.emoji + ' ' + esc(c.name) + '</button>'; }).join('') + '</div></div>';
+    h += '<div class="panel"><div class="field" style="margin-top:0"><span class="label">게임 방식</span><div class="seg" id="vSeg"><button data-v="0" aria-pressed="' + !S.variant + '">기본</button><button data-v="1" aria-pressed="' + S.variant + '">변형 (비슷한 단어)</button></div>' +
+      '<p class="hint" style="text-align:left;margin:6px 0 0" id="vHint"></p></div>' +
+      '<div class="field"><span class="label">토론 시간</span><div class="seg" id="mSeg">' + [2, 3, 5].map(function (m) { return '<button data-m="' + m + '" aria-pressed="' + (S.mins === m) + '">' + m + '분</button>'; }).join('') + '</div></div></div>';
+    h += '<button class="btn primary big wide" id="startBtn" type="button">게임 시작 ▶</button>';
+    root.innerHTML = h; vHint();
+    function setN(n) { S.n = Math.max(3, Math.min(12, n)); save(); renderSetup(); }
+    $('#minus').onclick = function () { setN(S.n - 1); }; $('#plus').onclick = function () { setN(S.n + 1); };
+    root.querySelectorAll('.nm').forEach(function (el) { el.oninput = function () { S.names[+el.dataset.i] = el.value; save(); }; });
+    $('#cats').onclick = function (e) { var b = e.target.closest('.chip'); if (!b) return; S.cat = b.dataset.c; save(); root.querySelectorAll('#cats .chip').forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); }); };
+    $('#vSeg').onclick = function (e) { var b = e.target.closest('button'); if (!b) return; S.variant = b.dataset.v === '1'; save(); root.querySelectorAll('#vSeg button').forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); }); vHint(); };
+    $('#mSeg').onclick = function (e) { var b = e.target.closest('button'); if (!b) return; S.mins = +b.dataset.m; save(); root.querySelectorAll('#mSeg button').forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); }); };
+    $('#startBtn').onclick = function () { MG.unlockAudio(); deal(); };
+  }
+  function vHint() { var el = $('#vHint'); if (el) el.textContent = S.variant ? '라이어는 "당신은 라이어입니다" 대신 같은 주제의 다른 단어를 받아요. 자기가 라이어인 줄 모를 수도 있어요!' : '라이어는 "당신은 라이어입니다"라는 메시지를 받아요.'; }
+
+  /* ---------- 배정 ---------- */
+  function deal() {
+    var cats = S.cat === '*' ? CATS : S.cat === '#bible' ? CATS.filter(function (c) { return c.group === '성경'; }) : CATS.filter(function (c) { return c.name === S.cat; });
+    if (!cats.length) cats = CATS;
+    var cat = cats[Math.floor(Math.random() * cats.length)];
+    var word = cat.words[Math.floor(Math.random() * cat.words.length)];
+    var others = cat.words.filter(function (w) { return w !== word; });
+    var alt = others[Math.floor(Math.random() * others.length)];
+    G = { cat: cat.name, word: word, alt: alt, liar: Math.floor(Math.random() * S.n), idx: 0, shown: false, votes: [], first: Math.floor(Math.random() * S.n) };
+    MG.wake.on(); renderPass();
+  }
+
+  /* ---------- 폰 돌리기 ---------- */
+  function renderPass() {
+    var i = G.idx, isLiar = i === G.liar;
+    var content;
+    if (!G.shown) {
+      content = '<button class="secret hidden" id="reveal" type="button"><div class="big">👆 탭해서 확인</div><div class="muted">다른 사람은 보지 마세요!</div></button>';
+    } else if (isLiar && !S.variant) {
+      content = '<div class="secret liar"><div class="muted">주제: ' + esc(G.cat) + '</div><div class="big">🤥 당신은<br>라이어입니다</div><div class="muted">들키지 않게 주제어를 눈치껏 맞혀 보세요</div></div>';
+    } else {
+      content = '<div class="secret"><div class="muted">주제: ' + esc(G.cat) + '</div><div class="big">' + esc(isLiar ? G.alt : G.word) + '</div><div class="muted">외우고 가려 주세요</div></div>';
+    }
+    var last = i === S.n - 1;
+    root.innerHTML = '<div class="tr-screen"><div class="muted" style="font-weight:700">' + (i + 1) + ' / ' + S.n + '</div><div class="pname">' + esc(pname(i)) + ' 님 차례</div>' + content +
+      (G.shown ? '<button class="btn primary big wide" id="hide" type="button">' + (last ? '모두 확인했어요 → 토론 시작' : '가렸어요, 다음 사람에게 넘기기 ▶') + '</button>' : '<p class="hint">' + esc(pname(i)) + ' 님에게 휴대폰을 넘겨 주세요</p>') + '</div>';
+    if (!G.shown) $('#reveal').onclick = function () { G.shown = true; renderPass(); };
+    else $('#hide').onclick = function () { G.shown = false; G.idx++; if (G.idx >= S.n) renderTalk(); else renderPass(); };
+  }
+
+  /* ---------- 토론 ---------- */
+  function renderTalk() {
+    clearT();
+    var total = S.mins * 60, end = Date.now() + total * 1000;
+    root.innerHTML = '<div class="tr-screen"><div class="panel center"><div class="tr-emoji" style="margin:0">💬</div><h2 style="margin:4px 0">토론 시작!</h2>' +
+      '<p class="tr-note" style="margin:0 0 6px">주제: <b>' + esc(G.cat) + '</b><br>첫 번째 발언자: <b>' + esc(pname(G.first)) + '</b> 님부터 돌아가며 주제어를 설명해요.<br>(단어를 직접 말하면 라이어에게 들켜요!)</p>' +
+      '<div class="tr-timer" id="tt">' + MG.fmtTime(total) + '</div><div class="bar" style="margin:8px 0"><i id="tb"></i></div>' +
+      '<button class="btn primary big wide" id="toVote" type="button">🗳️ 투표하러 가기</button></div></div>';
+    $('#toVote').onclick = renderVote;
+    tickId = setInterval(function () {
+      var r = Math.max(0, (end - Date.now()) / 1000);
+      var t = $('#tt'); if (!t) return clearT();
+      t.textContent = MG.fmtTime(Math.ceil(r)); t.classList.toggle('low', r <= 15);
+      $('#tb').style.width = (r / total * 100) + '%';
+      if (r <= 0) { clearT(); MG.beep(880, 250, .2); MG.vibrate([250, 100, 250]); MG.toast('⏰ 토론 시간 종료! 투표하세요'); }
+    }, 250);
+  }
+
+  /* ---------- 투표 ---------- */
+  function renderVote() {
+    clearT();
+    if (G.votes.length !== S.n) G.votes = Array.apply(null, Array(S.n)).map(function () { return 0; });
+    function draw() {
+      var max = Math.max.apply(null, G.votes), total = G.votes.reduce(function (a, b) { return a + b; }, 0);
+      root.innerHTML = '<div class="tr-screen"><div class="panel center"><h2 style="margin:0 0 4px">🗳️ 투표</h2><p class="tr-note" style="margin:0 0 6px">하나, 둘, 셋! 하면 모두 동시에 라이어라고 생각하는 사람을 손가락으로 가리키세요.\n그 표를 아래에서 눌러 세어 주세요. (총 ' + total + '표)</p>' +
+        '<div class="votegrid">' + G.votes.map(function (v, i) {
+          return '<div class="vote' + (v === max && max > 0 ? ' top' : '') + '"><span>' + esc(pname(i)) + '</span><span class="cnt">' + v + '</span><button class="btn small" data-i="' + i + '" data-d="1" type="button" aria-label="' + esc(pname(i)) + ' 표 추가">＋</button><button class="btn small" data-i="' + i + '" data-d="-1" type="button" aria-label="' + esc(pname(i)) + ' 표 빼기">−</button></div>';
+        }).join('') + '</div>' +
+        '<button class="btn primary big wide" id="done" type="button"' + (max > 0 ? '' : ' disabled') + '>투표 마감 · 결과 확인</button>' +
+        '<button class="btn wide" id="back" type="button" style="margin-top:8px">← 토론으로 돌아가기</button></div></div>';
+      root.querySelectorAll('.vote button').forEach(function (b) { b.onclick = function () { var i = +b.dataset.i; G.votes[i] = Math.max(0, G.votes[i] + +b.dataset.d); draw(); }; });
+      $('#done').onclick = renderVerdict; $('#back').onclick = renderTalk;
+    }
+    draw();
+  }
+
+  /* ---------- 결과 ---------- */
+  function renderVerdict() {
+    var max = Math.max.apply(null, G.votes);
+    var tops = []; G.votes.forEach(function (v, i) { if (v === max) tops.push(i); });
+    var names = tops.map(pname).join(', ');
+    var tie = tops.length > 1;
+    root.innerHTML = '<div class="tr-screen"><div class="panel center"><div class="tr-emoji" style="margin:0">' + (tie ? '🤝' : '👉') + '</div>' +
+      '<div class="verdict">' + (tie ? '동점이에요! (' + esc(names) + ')' : '가장 많은 표: ' + esc(names)) + '</div>' +
+      '<p class="tr-note">' + (tie ? '동점이면 더 토론하고 다시 투표하거나,\n지목된 사람 중에서 한 명을 정해 공개해도 좋아요.' : '이 사람이 라이어가 맞을까요?') + '</p>' +
+      '<button class="btn primary big wide" id="rev" type="button">🤥 라이어 공개!</button>' +
+      (tie ? '<button class="btn wide" id="again" type="button" style="margin-top:8px">다시 토론/투표</button>' : '') + '</div></div>';
+    $('#rev').onclick = function () { renderReveal(tops); };
+    if (tie) $('#again').onclick = renderTalk;
+  }
+  function renderReveal(tops) {
+    var caught = tops.length === 1 && tops[0] === G.liar;
+    root.innerHTML = '<div class="tr-screen"><div class="panel center"><div class="tr-emoji" style="margin:0">🤥</div>' +
+      '<div class="muted">라이어는…</div><div class="pname" style="font-size:2.2rem;color:var(--bad)">' + esc(pname(G.liar)) + '</div>' +
+      '<p class="tr-note" style="margin:6px 0">주제: ' + esc(G.cat) + '<br>진짜 주제어: <b>' + esc(G.word) + '</b>' + (S.variant ? '<br>라이어가 받은 단어: <b>' + esc(G.alt) + '</b>' : '') + '</p>' +
+      (caught ? '<div class="verdict" style="color:var(--good)">라이어를 찾았어요! 🎉</div><p class="tr-note">마지막 기회! 라이어가 진짜 주제어를 맞히면 라이어의 역전승이에요.<br>라이어는 정답을 한 번 말해 보세요.</p>' +
+        '<div class="row center"><button class="btn good big" id="hit" type="button">⭕ 맞혔다</button><button class="btn big" id="miss" type="button">❌ 틀렸다</button></div>'
+        : '<div class="verdict" style="color:var(--bad)">라이어를 놓쳤어요! 😈</div><p class="tr-note">라이어의 승리!</p><button class="btn primary big wide" id="end" type="button">결과 보기</button>') + '</div></div>';
+    if (caught) {
+      $('#hit').onclick = function () { renderEnd('liar', '라이어가 주제어를 맞혔어요! 라이어의 역전승 🤥🏆'); };
+      $('#miss').onclick = function () { renderEnd('citizen', '라이어가 주제어를 못 맞혔어요! 시민의 승리 🎉'); };
+    } else $('#end').onclick = function () { renderEnd('liar', '시민들이 라이어를 놓쳤어요! 라이어의 승리 🤥🏆'); };
+  }
+  function renderEnd(winner, msg) {
+    MG.wake.off(); MG.beep(winner === 'liar' ? 520 : 880, 200);
+    root.innerHTML = '<div class="tr-screen"><div class="panel center"><div class="tr-emoji">' + (winner === 'liar' ? '🤥' : '🎉') + '</div><div class="verdict">' + esc(msg) + '</div>' +
+      '<div class="row center" style="margin-top:12px"><button class="btn primary big" id="again" type="button">다시 하기</button><button class="btn big" id="setup" type="button">설정으로</button></div></div></div>';
+    $('#again').onclick = deal; $('#setup').onclick = renderSetup;
+  }
+
+  renderSetup();
+})();
+</script>
+</body>
+</html>

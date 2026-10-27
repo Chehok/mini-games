@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27><text y=%27.9em%27 font-size=%2790%27>🚫</text></svg>">
+  <title>금지어 게임 · Mini Games</title>
+  <meta name="description" content="금지어를 말하지 않고 정답을 설명하는 팀 대항 파티 게임. 성경 카드도 있어요.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-game="taboo">
+  <header class="site-header">
+    <a class="back" href="../">← 게임 목록</a>
+    <h1>🚫 금지어 게임</h1>
+    <span class="spacer"></span>
+  </header>
+  <main class="game" id="app"></main>
+
+<script src="../assets/common.js"></script>
+<script src="../assets/teamround.js"></script>
+<script src="words.js"></script>
+<script>
+TeamRound.start({
+  key: 'taboo', emoji: '🚫', mode: 'taboo', timeOptions: [60, 90, 120], defaultTime: 60,
+  intro: '카드의 정답을 말로 설명해서 팀원이 맞히게 해요.\n단, 정답과 아래 금지어는 절대 말하면 안 돼요!\n금지어를 말하면 감점(-1)이에요.',
+  readyNote: '휴대폰은 설명하는 사람이 받아 주세요.\n맞히는 팀원에게는 화면이 보이지 않게 가려야 해요!\n금지어를 말하면 상대 팀이 "🚫 금지어" 버튼을 눌러요.',
+  countNote: '설명하는 사람은 화면을 가리고 준비하세요!',
+  cats: window.TABOO_DATA.map(function (c) {
+    return {
+      name: c.cat, emoji: c.emoji, group: c.group,
+      items: c.cards.split('|').map(function (s) { var p = s.split(':'); return { w: p[0], f: p[1].split(',') }; })
+    };
+  })
+});
+</script>
+</body>
+</html>

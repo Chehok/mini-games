@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27><text y=%27.9em%27 font-size=%2790%27>🔮</text></svg>">
+  <title>텔레파시 게임 · Mini Games</title>
+  <meta name="description" content="같은 주제에서 같은 답을 쓰면 성공! 모두 종이에 답을 적고 동시에 공개하는 텔레파시 게임. 성경 주제도 있어요.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="stylesheet" href="../assets/style.css">
+  <style>
+    .tp-card { background: var(--surface); border: 3px solid var(--accent); border-radius: 24px; padding: 30px 14px; margin: 12px 0; min-height: 190px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 10px; text-align: center; box-shadow: var(--shadow); }
+    .tp-card .cat { font-size: .85rem; font-weight: 700; color: var(--muted); }
+    .tp-card .t { font-size: clamp(1.9rem, 9vw, 3.2rem); font-weight: 900; line-height: 1.3; word-break: keep-all; }
+    .tp-card .sub { font-size: 1rem; font-weight: 700; color: var(--accent); }
+    .pl-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .pl { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 2px solid var(--border); border-radius: 14px; background: var(--surface); font-weight: 800; text-align: left; touch-action: manipulation; }
+    .pl[aria-pressed="true"] { border-color: var(--good); background: color-mix(in srgb, var(--good) 15%, var(--surface)); }
+    .pl .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pl .sc { font-variant-numeric: tabular-nums; font-size: 1.15rem; }
+    .nameboxes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+  </style>
+</head>
+<body data-game="telepathy">
+  <header class="site-header">
+    <a class="back" href="../">← 게임 목록</a>
+    <h1>🔮 텔레파시 게임</h1>
+    <span class="spacer"></span>
+  </header>
+  <main class="game" id="app"></main>
+
+<script src="../assets/common.js"></script>
+<script src="words.js"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = function (s) { return document.querySelector(s); };
+  var root = $('#app');
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  var CATS = window.TELEPATHY_DATA.map(function (c) { return { name: c.cat, emoji: c.emoji, group: c.group, items: c.prompts.split(',').map(function (s) { return { t: s.trim(), c: c.cat }; }) }; });
+  var def = { sel: 'all', secs: 20, track: false, n: 4, names: [], scores: [] };
+  var S = Object.assign({}, def, MG.store.get('telepathy.settings', {}));
+  function save() { MG.store.set('telepathy.settings', S); }
+  var SELS = [{ key: 'all', label: '🎲 전체', cats: CATS }, { key: 'bible', label: '✝️ 성경만', cats: CATS.filter(function (c) { return c.group === '성경'; }) }, { key: 'general', label: '일반만', cats: CATS.filter(function (c) { return c.group !== '성경'; }) }]
+    .concat(CATS.map(function (c) { return { key: 'c:' + c.name, label: c.emoji + ' ' + c.name, cats: [c] }; }));
+  function poolOf(s) { var a = []; s.cats.forEach(function (c) { a = a.concat(c.items); }); return a; }
+  function curSel() { return SELS.filter(function (s) { return s.key === S.sel; })[0] || SELS[0]; }
+  function pname(i) { return ((S.names[i] || '').trim()) || (i + 1) + '번'; }
+  function scoreOf(i) { return S.scores[i] || 0; }
+
+  var queue = [], cur = null, tickId = null, round = 0, matched = {};
+  function clearT() { clearInterval(tickId); tickId = null; }
+
+  function renderSetup() {
+    clearT(); MG.wake.off();
+    var h = '<div class="panel center"><div class="tr-emoji" style="margin:0">🔮</div><p class="tr-note" style="margin:4px 0 0">주제가 나오면 모두 <b>종이에 답을 적어요</b>.\n제한시간이 끝나면 동시에 공개! 같은 답을 쓴 사람끼리 점수를 얻어요.\n(말하거나 서로 보면 반칙!)</p></div>';
+    h += '<div class="panel"><h2>주제 묶음</h2><div class="chips" id="cats">' + SELS.map(function (s) { return '<button class="chip" type="button" data-k="' + s.key + '" aria-pressed="' + (s.key === S.sel) + '">' + s.label + ' <span style="opacity:.7">' + poolOf(s).length + '</span></button>'; }).join('') + '</div></div>';
+    h += '<div class="panel"><div class="field" style="margin-top:0"><span class="label">답을 적는 시간</span><div class="seg" id="tSeg">' + [10, 20, 30, 60].map(function (s) { return '<button data-s="' + s + '" aria-pressed="' + (S.secs === s) + '">' + s + '초</button>'; }).join('') + '</div></div>' +
+      '<div class="field"><span class="label">참가자 점수 기록 (선택)</span><div class="seg" id="trSeg"><button data-t="0" aria-pressed="' + !S.track + '">안 함</button><button data-t="1" aria-pressed="' + S.track + '">기록하기</button></div></div>';
+    if (S.track) {
+      h += '<div class="row center" style="align-items:center;margin-bottom:8px"><button class="btn" id="minus" type="button" aria-label="한 명 줄이기">−</button><b style="font-size:1.4rem;min-width:3.5ch;text-align:center">' + S.n + '명</b><button class="btn" id="plus" type="button" aria-label="한 명 늘리기">＋</button></div><div class="nameboxes">' +
+        Array.apply(null, Array(S.n)).map(function (_, i) { return '<input class="input nm" data-i="' + i + '" maxlength="8" placeholder="' + (i + 1) + '번 이름" value="' + esc(S.names[i] || '') + '" aria-label="' + (i + 1) + '번 이름">'; }).join('') + '</div>';
+    }
+    h += '</div><button class="btn primary big wide" id="go" type="button">시작하기 ▶</button>';
+    root.innerHTML = h;
+    $('#cats').onclick = function (e) { var b = e.target.closest('.chip'); if (!b) return; S.sel = b.dataset.k; save(); root.querySelectorAll('#cats .chip').forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); }); };
+    $('#tSeg').onclick = function (e) { var b = e.target.closest('button'); if (!b) return; S.secs = +b.dataset.s; save(); root.querySelectorAll('#tSeg button').forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); }); };
+    $('#trSeg').onclick = function (e) { var b = e.target.closest('button'); if (!b) return; S.track = b.dataset.t === '1'; save(); renderSetup(); };
+    if (S.track) {
+      $('#minus').onclick = function () { S.n = Math.max(2, S.n - 1); save(); renderSetup(); };
+      $('#plus').onclick = function () { S.n = Math.min(12, S.n + 1); save(); renderSetup(); };
+      root.querySelectorAll('.nm').forEach(function (el) { el.oninput = function () { S.names[+el.dataset.i] = el.value; save(); }; });
+    }
+    $('#go').onclick = function () { MG.unlockAudio(); S.scores = Array.apply(null, Array(S.n)).map(function () { return 0; }); save(); queue = []; round = 0; MG.wake.on(); newPrompt(); };
+  }
+
+  function newPrompt() {
+    clearT();
+    if (!queue.length) { queue = MG.shuffle(poolOf(curSel())); if (round > 0) MG.toast('모든 주제를 썼어요. 다시 섞을게요!', 2200); }
+    cur = queue.pop(); round++; matched = {};
+    root.innerHTML = '<div class="tr-screen"><div class="muted" style="font-weight:700">' + round + '번째 주제</div>' +
+      '<div class="tp-card"><div class="cat">' + esc(cur.c) + '</div><div class="t">' + esc(cur.t) + '</div><div class="sub" id="sub">종이에 답을 적어 주세요!</div></div>' +
+      '<div class="tr-timer" id="tt">' + MG.fmtTime(S.secs) + '</div><div class="bar" style="margin:8px 0 14px"><i id="tb"></i></div>' +
+      '<div class="row center"><button class="btn primary big" id="start" type="button">⏱ 타이머 시작</button><button class="btn big" id="skip" type="button">다른 주제 ⏭</button></div>' +
+      '<div class="toolbar"><button class="btn small" id="quit" type="button">끝내기</button></div></div>';
+    $('#start').onclick = startTimer; $('#skip').onclick = newPrompt; $('#quit').onclick = renderEnd;
+  }
+  function startTimer() {
+    clearT(); MG.unlockAudio();
+    var end = Date.now() + S.secs * 1000;
+    $('#start').disabled = true;
+    tickId = setInterval(function () {
+      var r = Math.max(0, (end - Date.now()) / 1000), t = $('#tt'); if (!t) return clearT();
+      t.textContent = MG.fmtTime(Math.ceil(r)); t.classList.toggle('low', r <= 5); $('#tb').style.width = (r / S.secs * 100) + '%';
+      if (r <= 0) { clearT(); MG.beep(880, 250, .2); MG.vibrate([250, 100, 250]); renderReveal(); }
+    }, 200);
+  }
+  function renderReveal() {
+    var h = '<div class="tr-screen"><div class="tp-card"><div class="cat">' + esc(cur.c) + '</div><div class="t">' + esc(cur.t) + '</div><div class="sub">🎉 하나, 둘, 셋! 동시에 공개하세요!</div></div>';
+    if (S.track) {
+      h += '<div class="panel"><h2>같은 답이 나온 사람을 눌러 주세요</h2><p class="hint" style="margin:0 0 8px">가장 많은 사람이 같은 답을 쓴 그룹이 점수를 얻어요 (+1점)</p><div class="pl-grid" id="pl">' +
+        Array.apply(null, Array(S.n)).map(function (_, i) { return '<button class="pl" type="button" data-i="' + i + '" aria-pressed="false"><span class="nm">' + esc(pname(i)) + '</span><span class="sc">' + scoreOf(i) + '</span></button>'; }).join('') + '</div></div>';
+    } else h += '<p class="tr-note">같은 답을 쓴 사람끼리 하이파이브! ✋</p>';
+    h += '<div class="row center"><button class="btn primary big" id="next" type="button">' + (S.track ? '점수 반영 · 다음 주제 ▶' : '다음 주제 ▶') + '</button></div>' +
+      '<div class="toolbar"><button class="btn small" id="quit" type="button">끝내기</button></div></div>';
+    root.innerHTML = h;
+    if (S.track) $('#pl').onclick = function (e) { var b = e.target.closest('.pl'); if (!b) return; var i = +b.dataset.i; matched[i] = !matched[i]; b.setAttribute('aria-pressed', matched[i] ? 'true' : 'false'); };
+    $('#next').onclick = function () { applyMatches(); newPrompt(); };
+    $('#quit').onclick = function () { applyMatches(); renderEnd(); };
+  }
+  function applyMatches() { if (!S.track) return; Object.keys(matched).forEach(function (k) { if (matched[k]) S.scores[+k] = scoreOf(+k) + 1; }); matched = {}; save(); }
+
+  function renderEnd() {
+    clearT(); MG.wake.off();
+    var h = '<div class="panel center"><div class="tr-emoji">🔮</div><h2 style="margin:0 0 6px">수고하셨어요!</h2><p class="tr-note" style="margin:0 0 8px">' + (round) + '개의 주제를 해봤어요.</p>';
+    if (S.track) {
+      var order = Array.apply(null, Array(S.n)).map(function (_, i) { return { i: i, s: scoreOf(i) }; }).sort(function (a, b) { return b.s - a.s; });
+      h += '<div class="scoreboard">' + order.map(function (o, ix) { return '<div class="srow' + (ix === 0 && o.s > 0 ? ' first' : '') + '"><span>' + (['🥇', '🥈', '🥉'][ix] || '') + '</span><span class="name">' + esc(pname(o.i)) + '</span><span class="pts">' + o.s + '</span></div>'; }).join('') + '</div>';
+    }
+    h += '<div class="row center" style="margin-top:12px"><button class="btn primary big" id="again" type="button">다시 하기</button><button class="btn big" id="setup" type="button">설정으로</button></div></div>';
+    root.innerHTML = h;
+    $('#again').onclick = function () { S.scores = Array.apply(null, Array(S.n)).map(function () { return 0; }); queue = []; round = 0; MG.wake.on(); newPrompt(); };
+    $('#setup').onclick = renderSetup;
+  }
+  renderSetup();
+})();
+</script>
+</body>
+</html>

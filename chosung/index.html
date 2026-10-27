@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27><text y=%27.9em%27 font-size=%2790%27>💡</text></svg>">
+  <title>초성 퀴즈 · Mini Games</title>
+  <meta name="description" content="초성만 보고 정답을 맞혀 보세요. 혼자서 10문제 도전, 여럿이서 한 화면으로 즐기는 파티 모드. 성경 퀴즈팩도 있어요.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="stylesheet" href="../assets/style.css">
+  <style>
+    .modebar { display: flex; justify-content: center; margin-bottom: 12px; }
+    .cs { display: flex; flex-wrap: wrap; justify-content: center; gap: .55em .9em; margin: 0; --ts: 2.6rem; }
+    .cw { display: inline-flex; gap: .12em; }
+    .ct {
+      display: inline-grid; place-items: center; width: 1.2em; height: 1.4em; font-size: var(--ts); font-weight: 900; line-height: 1;
+      background: var(--surface-2); border: 2px solid var(--border); border-radius: .22em; color: var(--accent);
+    }
+    .ct.other { background: transparent; border-color: transparent; width: auto; min-width: .6em; color: var(--text); }
+    .ct.rev { color: var(--text); background: color-mix(in srgb, var(--accent) 18%, var(--surface)); border-color: var(--accent); }
+    .ct.ans { color: var(--good); border-color: var(--good); background: color-mix(in srgb, var(--good) 12%, var(--surface)); }
+    .qcard { background: var(--surface); border: 2px solid var(--border); border-radius: 22px; padding: 22px 10px 16px; text-align: center; box-shadow: var(--shadow); margin-bottom: 12px; }
+    .qcard.party { padding: 28px 10px 20px; }
+    .qcard.party .cs { --ts: 3.4rem; }
+    .qcat { font-size: .8rem; font-weight: 700; color: var(--muted); margin-bottom: 12px; }
+    .qhint { min-height: 1.4em; margin: 12px 0 0; font-weight: 700; color: var(--accent); }
+    .qfeed { min-height: 1.4em; margin: 8px 0 0; font-weight: 800; }
+    .qfeed.bad { color: var(--bad); } .qfeed.good { color: var(--good); }
+    .shake { animation: shake .35s; }
+    @keyframes shake { 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
+    .ansform { display: flex; gap: 8px; margin-bottom: 10px; }
+    .ansform .input { font-size: 1.15rem; font-weight: 700; }
+    .ansform .btn { white-space: nowrap; flex: none; }
+    .qtimer { margin-bottom: 12px; }
+    .resgrid { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; margin: 8px 0 12px; font-size: 1.5rem; }
+    .reslist { list-style: none; padding: 0; margin: 10px 0; text-align: left; display: grid; gap: 4px; font-size: .9rem; }
+    .reslist li { display: flex; gap: 8px; align-items: center; padding: 6px 10px; background: var(--surface-2); border-radius: 10px; }
+    .reslist .pts { margin-left: auto; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .bigscore { font-size: 2.6rem; font-weight: 900; color: var(--accent); line-height: 1.1; }
+    .tgrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .tcard { background: var(--surface); border: 2px solid var(--border); border-radius: 16px; padding: 10px; text-align: center; box-shadow: var(--shadow); }
+    .tcard .input { text-align: center; font-weight: 800; padding: 6px 8px; margin-bottom: 4px; }
+    .tcard .sc { font-size: 2.2rem; font-weight: 900; line-height: 1.1; font-variant-numeric: tabular-nums; }
+    .tcard .row { justify-content: center; margin-top: 6px; }
+    .tcard .plus { flex: 1; }
+    @media (max-width: 420px) { .qcard.party .cs { --ts: 2.8rem; } }
+  </style>
+</head>
+<body data-game="chosung">
+  <header class="site-header">
+    <a class="back" href="../">← 게임 목록</a>
+    <h1>💡 초성 퀴즈</h1>
+    <span class="spacer"></span>
+  </header>
+  <main class="game">
+    <div class="modebar">
+      <div class="seg" id="modes" role="group" aria-label="모드">
+        <button data-mode="solo" aria-pressed="true">혼자</button>
+        <button data-mode="party" aria-pressed="false">함께</button>
+      </div>
+    </div>
+
+    <!-- 카테고리 (두 모드 공용) -->
+    <details class="panel" id="catPanel">
+      <summary>카테고리: <span id="catLabel">전체</span></summary>
+      <div class="chips" id="cats"></div>
+    </details>
+
+    <!-- 혼자 -->
+    <section id="solo">
+      <div id="soloIdle" class="panel center">
+        <div class="tr-emoji">💡</div>
+        <h2 style="margin:0 0 6px">초성 10문제 도전!</h2>
+        <p class="tr-note" style="margin-bottom:10px">초성만 보고 정답을 입력하세요.<br>문제당 30초 · 빨리 맞힐수록, 연속 정답일수록 보너스!<br>힌트를 쓰면 점수가 깎여요 (-30점씩).</p>
+        <p class="muted" style="margin:0 0 14px">이 카테고리 최고 점수: <b id="soloBest">-</b></p>
+        <button class="btn primary big wide" id="soloStart">시작하기</button>
+      </div>
+
+      <div id="soloPlay" hidden>
+        <div class="statbar">
+          <div class="stat"><span class="label">문제</span><span class="value" id="sQ">1/10</span></div>
+          <div class="stat"><span class="label">점수</span><span class="value" id="sScore">0</span></div>
+          <div class="stat"><span class="label">연속</span><span class="value" id="sStreak">0</span></div>
+        </div>
+        <div class="bar qtimer" id="sBar"><i></i></div>
+        <div class="qcard" id="sCard">
+          <div class="qcat" id="sCat"></div>
+          <div class="cs" id="sCs" aria-live="polite"></div>
+          <p class="qhint" id="sHint"></p>
+          <p class="qfeed" id="sFeed"></p>
+        </div>
+        <form class="ansform" id="ansForm" autocomplete="off">
+          <input class="input" id="ansInput" type="text" enterkeyhint="send" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="정답을 입력하세요" aria-label="정답 입력">
+          <button class="btn primary" type="submit" id="ansBtn">확인</button>
+        </form>
+        <div class="row center">
+          <button class="btn" id="hintBtn" type="button">💡 힌트 (-30)</button>
+          <button class="btn" id="passBtn" type="button">패스 ⏭</button>
+        </div>
+      </div>
+
+      <div id="soloEnd" class="panel center" hidden>
+        <h2 style="margin:0">라운드 종료!</h2>
+        <div class="bigscore" id="eScore">0</div>
+        <p class="muted" id="eSub" style="margin:2px 0"></p>
+        <div class="resgrid" id="eGrid"></div>
+        <ul class="reslist" id="eList"></ul>
+        <div class="row center">
+          <button class="btn primary" id="shareBtn" type="button">📤 결과 공유</button>
+          <button class="btn" id="againBtn" type="button">다시 하기</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 함께 -->
+    <section id="party" hidden>
+      <div class="panel" style="padding:10px">
+        <div class="row center" style="align-items:center">
+          <span class="muted" style="font-size:.8rem;font-weight:700">팀</span>
+          <div class="seg" id="teamCount" role="group" aria-label="팀 수">
+            <button data-n="2">2</button><button data-n="3">3</button><button data-n="4">4</button>
+          </div>
+          <span class="muted" style="font-size:.8rem;font-weight:700">제한시간</span>
+          <div class="seg" id="pTimer" role="group" aria-label="제한시간">
+            <button data-s="0">끔</button><button data-s="10">10초</button><button data-s="20">20초</button><button data-s="30">30초</button>
+          </div>
+        </div>
+      </div>
+      <div class="bar qtimer" id="pBar" hidden><i></i></div>
+      <div class="qcard party" id="pCard">
+        <div class="qcat" id="pCat"></div>
+        <div class="cs" id="pCs" aria-live="polite"></div>
+        <p class="qhint" id="pHint"></p>
+        <p class="qfeed" id="pFeed"></p>
+      </div>
+      <div class="row center" style="margin-bottom:12px">
+        <button class="btn" id="pHintBtn" type="button">💡 힌트</button>
+        <button class="btn" id="pRevealBtn" type="button">👀 정답 보기</button>
+        <button class="btn primary" id="pNextBtn" type="button">다음 문제 ▶</button>
+      </div>
+      <div class="tgrid" id="tgrid"></div>
+      <div class="toolbar"><button class="btn small" id="resetScores" type="button">점수 초기화</button></div>
+      <p class="hint">정답을 맞힌 팀의 <b>+1</b>을 누르면 정답이 공개돼요.</p>
+    </section>
+  </main>
+
+<script src="../assets/common.js"></script>
+<script src="words.js"></script>
+<script>
+(function () {
+  'use strict';
+  var SITE_URL = 'https://chehok.github.io/mini-games/chosung/';
+  var SOLO_N = 10, Q_SECS = 30, HINT_COST = 30;
+  var $ = function (id) { return document.getElementById(id); };
+
+  /* ---------- 초성 추출 ---------- */
+  var INITIALS = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+  function initialOf(ch) {
+    var c = ch.charCodeAt(0);
+    if (c >= 0xAC00 && c <= 0xD7A3) return INITIALS[Math.floor((c - 0xAC00) / 588)];
+    return null;
+  }
+  function chosung(str) {
+    var out = '';
+    for (var i = 0; i < str.length; i++) { var ini = initialOf(str[i]); out += ini === null ? str[i] : ini; }
+    return out;
+  }
+  function norm(s) { return String(s).normalize('NFC').replace(/\s+/g, '').toLowerCase(); }
+
+  /* ---------- 데이터 ---------- */
+  var CATS = window.CHOSUNG_DATA.map(function (c) {
+    return {
+      name: c.cat, emoji: c.emoji, group: c.group || '일반',
+      items: c.items.map(function (s) { var p = s.split('|'); return { a: p[0], h: p[1] || '', c: c.cat }; })
+    };
+  });
+  var SELECTIONS = [
+    { key: 'all', label: '전체', cats: CATS },
+    { key: 'general', label: '일반 전체', cats: CATS.filter(function (c) { return c.group !== '성경'; }) },
+    { key: 'bible', label: '✝️ 성경 전체', cats: CATS.filter(function (c) { return c.group === '성경'; }) }
+  ].concat(CATS.map(function (c) { return { key: 'c:' + c.name, label: c.emoji + ' ' + c.name, cats: [c] }; }));
+  function poolOf(sel) { var a = []; sel.cats.forEach(function (c) { a = a.concat(c.items); }); return a; }
+  var selKey = MG.store.get('chosung.cat', 'all');
+  function curSel() { return SELECTIONS.filter(function (s) { return s.key === selKey; })[0] || SELECTIONS[0]; }
+
+  // 초성이 같은 다른 정답도 인정해요 (선택한 카테고리 안에서)
+  function isCorrect(input, q, pool) {
+    var n = norm(input); if (!n) return false;
+    if (n === norm(q.a)) return true;
+    var cq = chosung(norm(q.a));
+    return pool.some(function (o) { return norm(o.a) === n && chosung(norm(o.a)) === cq; });
+  }
+
+  /* ---------- 초성 표시 ---------- */
+  function renderCs(el, answer, opts) {
+    opts = opts || {};
+    el.innerHTML = '';
+    var chars = answer.replace(/\s/g, '').length;
+    var scale = chars <= 3 ? 1.25 : chars <= 5 ? 1.1 : chars <= 8 ? 0.9 : chars <= 12 ? 0.72 : chars <= 18 ? 0.58 : 0.5;
+    el.style.setProperty('--ts', (opts.party ? 3.4 : 2.6) * scale + 'rem');
+    if (window.innerWidth < 420 && opts.party) el.style.setProperty('--ts', 2.8 * scale + 'rem');
+    var first = true;
+    answer.split(' ').forEach(function (word) {
+      var w = document.createElement('span'); w.className = 'cw';
+      for (var i = 0; i < word.length; i++) {
+        var ch = word[i], ini = initialOf(ch), t = document.createElement('span');
+        t.className = 'ct';
+        if (ini === null) { t.className += ' other'; t.textContent = ch; }
+        else if (opts.reveal) { t.className += ' ans'; t.textContent = ch; }
+        else if (opts.first && first) { t.className += ' rev'; t.textContent = ch; }
+        else t.textContent = ini;
+        first = false;
+        w.appendChild(t);
+      }
+      el.appendChild(w);
+    });
+    el.setAttribute('aria-label', opts.reveal ? answer : '초성 ' + chosung(answer));
+  }
+
+  function makeQueue(pool) { return MG.shuffle(pool.slice()); }
+
+  /* ---------- 카테고리 선택 UI ---------- */
+  function drawCats() {
+    var box = $('cats'); box.innerHTML = '';
+    SELECTIONS.forEach(function (s) {
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.textContent = s.label + ' ' + poolOf(s).length;
+      b.dataset.k = s.key; b.setAttribute('aria-pressed', s.key === selKey ? 'true' : 'false');
+      box.appendChild(b);
+    });
+    $('catLabel').textContent = curSel().label + ' (' + poolOf(curSel()).length + '문제)';
+  }
+  $('cats').addEventListener('click', function (e) {
+    var b = e.target.closest('.chip'); if (!b) return;
+    if (mode === 'solo' && soloState === 'play') { MG.toast('라운드 중에는 바꿀 수 없어요'); return; }
+    selKey = b.dataset.k; MG.store.set('chosung.cat', selKey); drawCats(); showBest();
+    if (mode === 'party') { partyQueue = []; nextParty(); }
+  });
+
+  /* ---------- 모드 ---------- */
+  var mode = 'solo', soloState = 'idle';
+  function setMode(m, push) {
+    mode = m === 'party' ? 'party' : 'solo';
+    document.querySelectorAll('#modes button').forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.mode === mode ? 'true' : 'false'); });
+    $('solo').hidden = mode !== 'solo'; $('party').hidden = mode !== 'party'; $('catPanel').hidden = false;
+    if (push) { try { history.replaceState(null, '', '?mode=' + mode); } catch (e) { /* ignore */ } }
+    if (mode === 'party') { stopSolo(); if (!pq) nextParty(); } else { clearInterval(pTick); }
+    document.title = '초성 퀴즈 · Mini Games';
+  }
+  $('modes').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) setMode(b.dataset.mode, true); });
+
+  /* ======================= 혼자 ======================= */
+  var queue = [], q = null, qi = 0, score = 0, streak = 0, hints = 0, results = [], deadline = 0, sTick = null, locked = false, qPool = [];
+  function bestKey() { return 'chosung.best.' + selKey; }
+  function showBest() { var b = MG.store.get(bestKey(), null); $('soloBest').textContent = b ? b + '점' : '-'; }
+  function show(id) { ['soloIdle', 'soloPlay', 'soloEnd'].forEach(function (x) { $(x).hidden = x !== id; }); $('catPanel').hidden = mode === 'solo' && id === 'soloPlay'; }
+  function stopSolo() { clearInterval(sTick); sTick = null; soloState = 'idle'; MG.wake.off(); show('soloIdle'); showBest(); }
+
+  function startSolo() {
+    MG.unlockAudio();
+    qPool = poolOf(curSel());
+    queue = makeQueue(qPool).slice(0, SOLO_N);
+    qi = 0; score = 0; streak = 0; results = []; soloState = 'play';
+    $('sScore').textContent = 0; $('sStreak').textContent = 0;
+    show('soloPlay'); MG.wake.on(); nextQ();
+  }
+  function nextQ() {
+    if (qi >= queue.length) return endSolo();
+    q = queue[qi]; hints = 0; locked = false;
+    $('sQ').textContent = (qi + 1) + '/' + queue.length;
+    $('sCat').textContent = q.c;
+    renderCs($('sCs'), q.a, {});
+    $('sHint').textContent = ''; $('sFeed').textContent = ''; $('sFeed').className = 'qfeed';
+    $('ansInput').value = ''; $('ansInput').disabled = false; $('ansBtn').disabled = false;
+    $('hintBtn').disabled = false; $('passBtn').disabled = false; $('hintBtn').textContent = '💡 힌트 (-' + HINT_COST + ')';
+    deadline = Date.now() + Q_SECS * 1000;
+    clearInterval(sTick); sTick = setInterval(tickSolo, 200); tickSolo();
+    if (!/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) $('ansInput').focus();
+  }
+  function remaining() { return Math.max(0, (deadline - Date.now()) / 1000); }
+  function tickSolo() {
+    var r = remaining();
+    $('sBar').firstElementChild.style.width = (r / Q_SECS * 100) + '%';
+    $('sBar').classList.toggle('low', r <= 8);
+    if (r <= 0 && !locked) finishQ('time');
+  }
+  function finishQ(kind) {
+    if (locked) return; locked = true; clearInterval(sTick);
+    var pts = 0;
+    if (kind === 'ok') {
+      var bonus = Math.round(remaining() / Q_SECS * 50);
+      streak++;
+      var sb = Math.min(streak - 1, 5) * 10;
+      pts = Math.max(20, 100 - HINT_COST * hints) + bonus + sb;
+      score += pts;
+      $('sFeed').textContent = '정답! +' + pts + '점' + (streak > 1 ? ' (연속 ' + streak + ')' : ''); $('sFeed').className = 'qfeed good';
+    } else {
+      streak = 0;
+      $('sFeed').textContent = (kind === 'time' ? '⏰ 시간 초과! ' : '') + '정답: ' + q.a; $('sFeed').className = 'qfeed bad';
+      if (kind === 'time') { MG.beep(330, 250); MG.vibrate(200); }
+    }
+    renderCs($('sCs'), q.a, { reveal: true });
+    $('sScore').textContent = score; $('sStreak').textContent = streak;
+    $('ansInput').disabled = true; $('ansBtn').disabled = true; $('hintBtn').disabled = true; $('passBtn').disabled = true;
+    results.push({ a: q.a, kind: kind, hints: hints, pts: pts });
+    qi++;
+    setTimeout(function () { if (soloState === 'play') nextQ(); }, kind === 'ok' ? 1100 : 1700);
+  }
+
+  /* 입력: 한글 IME 조합 중에는 제출하지 않고, 조합이 끝난 뒤(compositionend)에 제출해요 */
+  var composing = false, pendingSubmit = false;
+  var inp = $('ansInput');
+  inp.addEventListener('compositionstart', function () { composing = true; });
+  // 데스크톱 크롬 등: 조합 중 Enter는 글자만 확정하고 제출은 안 되므로, 확정되는 즉시 제출해 줘요
+  inp.addEventListener('keydown', function (e) { if (e.key === 'Enter' && (e.isComposing || e.keyCode === 229)) pendingSubmit = true; });
+  inp.addEventListener('compositionend', function () {
+    composing = false;
+    if (pendingSubmit) { pendingSubmit = false; setTimeout(submitAnswer, 0); }
+  });
+  $('ansForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (composing) { pendingSubmit = true; return; }
+    setTimeout(submitAnswer, 0);   // 조합 중이던 마지막 글자가 확정된 뒤 값을 읽어요
+  });
+  function submitAnswer() {
+    if (locked || soloState !== 'play') return;
+    var v = inp.value;
+    if (!norm(v)) return;
+    if (isCorrect(v, q, qPool)) { finishQ('ok'); return; }
+    var f = $('sFeed');
+    f.className = 'qfeed bad';
+    f.textContent = chosung(norm(v)) === chosung(norm(q.a)) ? '글자 수는 맞지만 다른 단어예요!' : '아쉬워요, 다시 생각해 보세요!';
+    var card = $('sCard'); card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake');
+    MG.vibrate(60);
+    inp.select();
+  }
+  $('hintBtn').addEventListener('click', function () {
+    if (locked) return;
+    if (hints === 0) { hints = 1; $('sHint').textContent = '💡 ' + (q.h || '힌트가 없어요'); $('hintBtn').textContent = '🔤 첫 글자 (-' + HINT_COST + ')'; }
+    else if (hints === 1) { hints = 2; renderCs($('sCs'), q.a, { first: true }); $('hintBtn').disabled = true; $('hintBtn').textContent = '힌트 모두 사용'; }
+    inp.focus();
+  });
+  $('passBtn').addEventListener('click', function () { if (!locked) finishQ('pass'); });
+
+  function endSolo() {
+    soloState = 'end'; MG.wake.off(); clearInterval(sTick);
+    var prev = MG.store.get(bestKey(), 0), isNew = score > prev;
+    if (isNew) MG.store.set(bestKey(), score);
+    var correct = results.filter(function (r) { return r.kind === 'ok'; }).length;
+    $('eScore').textContent = score + '점';
+    $('eSub').textContent = correct + '/' + results.length + ' 정답' + (isNew ? ' · 🏆 새 최고 점수!' : ' · 최고 ' + Math.max(prev, score) + '점');
+    $('eGrid').textContent = emojiRow();
+    var ul = $('eList'); ul.innerHTML = '';
+    results.forEach(function (r) {
+      var li = document.createElement('li');
+      var mark = r.kind === 'ok' ? (r.hints ? '🟨' : '🟩') : r.kind === 'time' ? '🟥' : '⬛';
+      li.innerHTML = '<span></span><span class="pts"></span>';
+      li.firstChild.textContent = mark + ' ' + r.a; li.lastChild.textContent = r.kind === 'ok' ? '+' + r.pts : (r.kind === 'time' ? '시간 초과' : '패스');
+      ul.appendChild(li);
+    });
+    show('soloEnd'); showBest();
+  }
+  function emojiRow() {
+    return results.map(function (r) { return r.kind === 'ok' ? (r.hints ? '🟨' : '🟩') : r.kind === 'time' ? '🟥' : '⬛'; }).join('');
+  }
+  function shareText() {
+    var correct = results.filter(function (r) { return r.kind === 'ok'; }).length;
+    return '💡 초성 퀴즈 · ' + curSel().label.replace(/^[^가-힣A-Za-z0-9]+\s*/, '') + '\n' +
+      emojiRow() + '\n' + score + '점 · ' + correct + '/' + results.length + ' 정답\n(🟩 정답 🟨 힌트 사용 ⬛ 패스 🟥 시간 초과)\n' + SITE_URL + '?mode=solo';
+  }
+  $('shareBtn').addEventListener('click', function () {
+    MG.share(shareText(), '초성 퀴즈').then(function (r) {
+      if (r === 'copied') MG.toast('결과를 복사했어요! 붙여넣어 공유하세요 📋');
+      else if (r === 'fail') MG.toast('복사에 실패했어요. 직접 선택해서 복사해 주세요');
+    });
+  });
+  $('againBtn').addEventListener('click', startSolo);
+  $('soloStart').addEventListener('click', startSolo);
+
+  /* ======================= 함께 ======================= */
+  var TEAM_COLORS = ['#ef4444', '#3b82f6', '#22a06b', '#f59e0b'];
+  var pset = MG.store.get('chosung.party', { n: 2, secs: 20, names: ['1팀', '2팀', '3팀', '4팀'], scores: [0, 0, 0, 0] });
+  var partyQueue = [], pq = null, pRevealed = false, pHints = 0, pDeadline = 0, pTick = null;
+  function saveParty() { MG.store.set('chosung.party', pset); }
+  function drawTeams() {
+    var g = $('tgrid'); g.innerHTML = '';
+    for (var i = 0; i < pset.n; i++) {
+      (function (i) {
+        var c = document.createElement('div'); c.className = 'tcard'; c.style.borderColor = TEAM_COLORS[i];
+        c.innerHTML = '<input class="input" maxlength="8" aria-label="팀 이름"><div class="sc"></div><div class="row"><button class="btn small" data-d="-1" type="button" aria-label="1점 빼기">−1</button><button class="btn good plus" data-d="1" type="button">+1</button></div>';
+        var ni = c.querySelector('input'); ni.value = pset.names[i];
+        ni.addEventListener('input', function () { pset.names[i] = ni.value; saveParty(); });
+        c.querySelector('.sc').textContent = pset.scores[i];
+        c.addEventListener('click', function (e) {
+          var b = e.target.closest('button'); if (!b) return;
+          var d = +b.dataset.d; pset.scores[i] = Math.max(0, pset.scores[i] + d); saveParty();
+          c.querySelector('.sc').textContent = pset.scores[i];
+          if (d > 0) { reveal(); $('pFeed').textContent = '🎉 ' + (pset.names[i] || (i + 1) + '팀') + ' +1점!'; $('pFeed').className = 'qfeed good'; }
+        });
+        g.appendChild(c);
+      })(i);
+    }
+    document.querySelectorAll('#teamCount button').forEach(function (b) { b.setAttribute('aria-pressed', +b.dataset.n === pset.n ? 'true' : 'false'); });
+  }
+  function drawTimerSeg() { document.querySelectorAll('#pTimer button').forEach(function (b) { b.setAttribute('aria-pressed', +b.dataset.s === pset.secs ? 'true' : 'false'); }); $('pBar').hidden = !pset.secs; }
+  $('teamCount').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; pset.n = +b.dataset.n; saveParty(); drawTeams(); });
+  $('pTimer').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; pset.secs = +b.dataset.s; saveParty(); drawTimerSeg(); startPTimer(); });
+  $('resetScores').addEventListener('click', function () { pset.scores = [0, 0, 0, 0]; saveParty(); drawTeams(); MG.toast('점수를 초기화했어요'); });
+
+  function nextParty() {
+    if (!partyQueue.length) partyQueue = makeQueue(poolOf(curSel()));
+    pq = partyQueue.pop(); pRevealed = false; pHints = 0;
+    $('pCat').textContent = pq.c;
+    renderCs($('pCs'), pq.a, { party: true });
+    $('pHint').textContent = ''; $('pFeed').textContent = ''; $('pFeed').className = 'qfeed';
+    $('pHintBtn').disabled = false;
+    startPTimer();
+  }
+  function startPTimer() {
+    clearInterval(pTick);
+    $('pBar').classList.remove('low');
+    $('pBar').firstElementChild.style.width = '100%';
+    if (!pset.secs || pRevealed || !pq) return;
+    pDeadline = Date.now() + pset.secs * 1000;
+    pTick = setInterval(function () {
+      var r = Math.max(0, (pDeadline - Date.now()) / 1000);
+      $('pBar').firstElementChild.style.width = (r / pset.secs * 100) + '%';
+      $('pBar').classList.toggle('low', r <= 5);
+      $('pFeed').textContent = '⏱ ' + Math.ceil(r) + '초'; $('pFeed').className = 'qfeed' + (r <= 5 ? ' bad' : '');
+      if (r <= 0) { reveal(); $('pFeed').textContent = '⏰ 시간 종료!'; $('pFeed').className = 'qfeed bad'; MG.beep(440, 300); MG.vibrate(300); }
+    }, 200);
+  }
+  function reveal() {
+    if (!pq) return;
+    pRevealed = true; clearInterval(pTick);
+    renderCs($('pCs'), pq.a, { party: true, reveal: true });
+    if (pq.h) $('pHint').textContent = '💡 ' + pq.h;
+    $('pFeed').textContent = ''; $('pHintBtn').disabled = true;
+  }
+  $('pHintBtn').addEventListener('click', function () { if (pq && !pRevealed) { $('pHint').textContent = '💡 ' + (pq.h || '힌트가 없어요'); } });
+  $('pRevealBtn').addEventListener('click', reveal);
+  $('pNextBtn').addEventListener('click', nextParty);
+
+  /* ---------- 시작 ---------- */
+  drawCats(); drawTeams(); drawTimerSeg(); showBest();
+  var m = new URLSearchParams(location.search).get('mode');
+  setMode(m === 'party' ? 'party' : 'solo', false);
+  window.Chosung = { current: function () { var x = mode === 'solo' ? q : pq; return x ? x.a : null; }, chosung: chosung, isCorrect: isCorrect, count: function () { return CATS.reduce(function (n, c) { return n + c.items.length; }, 0); } };
+})();
+</script>
+</body>
+</html>

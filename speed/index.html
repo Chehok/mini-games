@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27><text y=%27.9em%27 font-size=%2790%27>⚡</text></svg>">
+  <title>스피드 퀴즈 · Mini Games</title>
+  <meta name="description" content="말로 설명해서 팀원이 정답을 맞히는 스피드 퀴즈. 일반 카테고리와 성경 카테고리가 있어요.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-game="speed">
+  <header class="site-header">
+    <a class="back" href="../">← 게임 목록</a>
+    <h1>⚡ 스피드 퀴즈</h1>
+    <span class="spacer"></span>
+  </header>
+  <main class="game" id="app"></main>
+
+<script src="../assets/common.js"></script>
+<script src="../assets/teamround.js"></script>
+<script src="../charades/words.js"></script>
+<script src="../chosung/words.js"></script>
+<script src="words.js"></script>
+<script>
+(function () {
+  var cats = [];
+  function fromWords(c) { return { name: c.cat, emoji: c.emoji, group: c.group, items: c.words.split(',').map(function (w) { return { w: w.trim() }; }) }; }
+  // 몸짓 전용인 성경(연기용)·스포츠 카테고리는 빼고 가져와요 (성경은 아래에서 따로 추가)
+  window.CHARADES_DATA.forEach(function (c) { if (c.cat !== '성경' && c.cat !== '스포츠') cats.push(fromWords(c)); });
+  window.SPEED_DATA.forEach(function (c) { cats.push(fromWords(c)); });
+  window.CHOSUNG_DATA.forEach(function (c) {
+    if (c.group === '성경') cats.push({ name: c.cat, emoji: c.emoji, group: '성경', items: c.items.map(function (s) { return { w: s.split('|')[0] }; }) });
+  });
+  TeamRound.start({
+    key: 'speed', emoji: '⚡', mode: 'explain', timeOptions: [60, 90, 120], defaultTime: 60,
+    intro: '한 사람이 단어를 보고 말로 설명하면 팀원이 맞혀요.\n정답 단어(와 그 일부)는 말하면 안 돼요!',
+    readyNote: '휴대폰은 설명하는 사람이 받아 주세요.\n맞히는 팀원에게는 화면이 보이지 않게 가려야 해요!\n(정답 단어를 직접 말하거나 영어로 바꿔 말하면 반칙)',
+    countNote: '설명하는 사람은 화면을 가리고 준비하세요!',
+    cats: cats
+  });
+})();
+</script>
+</body>
+</html>
