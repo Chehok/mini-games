@@ -12,6 +12,7 @@
     var allCats = cfg.cats;
     var def = {
       n: 2, names: ['1팀', '2팀', '3팀', '4팀'], time: cfg.defaultTime || 60, passes: 3, rounds: 2,
+      cover: true,
       cats: allCats.map(function (c) { return c.name; })
     };
     var S = Object.assign({}, def, MG.store.get(KEY, {}));
@@ -19,9 +20,11 @@
     if (!S.cats.length) S.cats = def.cats;
     function save() { MG.store.set(KEY, S); }
 
-    var session = null, turn = null, queue = [], lastItem = null, tickId = null, timers = [];
+    var session = null, turn = null, queue = [], lastItem = null, tickId = null, coverTimer = null, timers = [];
     function later(fn, ms) { var id = setTimeout(fn, ms); timers.push(id); return id; }
-    function clearAll() { clearInterval(tickId); tickId = null; timers.forEach(clearTimeout); timers = []; }
+    function clearCover() { if (coverTimer) { clearTimeout(coverTimer); coverTimer = null; } }
+    function clearAll() { clearInterval(tickId); tickId = null; clearCover(); timers.forEach(clearTimeout); timers = []; }
+    function coverEnabled() { return cfg.mode !== 'taboo' && S.cover !== false; }
 
     function pool() {
       var a = [];
@@ -70,7 +73,9 @@
         '<div class="field"><span class="label">패스 가능 횟수 (턴당)</span><div class="seg" id="pSeg">' +
         [[1, '1번'], [3, '3번'], [5, '5번'], [0, '무제한']].map(function (o) { return '<button data-p="' + o[0] + '" aria-pressed="' + (S.passes === o[0]) + '">' + o[1] + '</button>'; }).join('') + '</div></div>' +
         '<div class="field"><span class="label">팀당 턴 수 (라운드)</span><div class="seg" id="rSeg">' +
-        [1, 2, 3].map(function (r) { return '<button data-r="' + r + '" aria-pressed="' + (S.rounds === r) + '">' + r + '번</button>'; }).join('') + '</div></div></div>';
+        [1, 2, 3].map(function (r) { return '<button data-r="' + r + '" aria-pressed="' + (S.rounds === r) + '">' + r + '번</button>'; }).join('') + '</div></div>' +
+        (cfg.mode === 'taboo' ? '' : '<label class="check"><input type="checkbox" id="coverChk"' + (S.cover !== false ? ' checked' : '') + '> 2초 후 가리기</label><p class="hint" style="margin:0">단어가 2초 뒤에 가려져요. 설명하는 사람은 카드를 눌러 다시 볼 수 있어요.</p>') +
+        '</div>';
       h += '<button class="btn primary big wide" id="startBtn" type="button">게임 시작 ▶</button></div>';
       root.innerHTML = h;
       updatePoolCount();
@@ -95,6 +100,7 @@
         };
       }
       segHandler('#tSeg', 't', 'time'); segHandler('#pSeg', 'p', 'passes'); segHandler('#rSeg', 'r', 'rounds');
+      if ($('#coverChk')) $('#coverChk').onchange = function () { S.cover = this.checked; save(); };
       $('#startBtn').onclick = function () { MG.unlockAudio(); startSession(); };
     }
     function updatePoolCount() { var el = $('#poolCount'); if (el) el.textContent = '(' + pool().length + '개)'; }
@@ -145,7 +151,8 @@
         '<div class="row center" style="align-items:center;justify-content:space-between;flex-wrap:nowrap"><div class="tr-turn" style="margin:0">' + dot(ti) + esc(teamName(ti)) + '</div>' +
         '<div class="tr-timer" id="timer">' + MG.fmtTime(S.time) + '</div><div class="tr-turn" style="margin:0" id="turnPts">0점</div></div>' +
         '<div class="bar" id="tbar" style="margin-top:8px"><i></i></div>' +
-        '<div class="tr-word" id="word" aria-live="polite"></div>' +
+        '<div class="tr-word" id="word"><div class="tr-face" id="face" aria-live="polite"></div>' +
+        '<button class="tr-mask" id="peekBtn" type="button"><span class="tr-ghost" aria-hidden="true"><i></i><i></i><i></i></span><span class="tr-mask-title">답이 가려져 있어요</span><span class="tr-mask-hint">탭하면 다시 보기</span></button></div>' +
         '<div class="tr-actions' + (taboo ? ' three' : '') + '">' +
         '<button class="btn good" id="okBtn" type="button">⭕ 정답</button>' +
         (taboo ? '<button class="btn bad" id="foulBtn" type="button">🚫 금지어<br><small>-1</small></button>' : '') +
@@ -154,7 +161,24 @@
       $('#okBtn').onclick = function () { mark('ok'); };
       if (taboo) $('#foulBtn').onclick = function () { mark('foul'); };
       $('#passBtn').onclick = function () { mark('pass'); };
+      $('#peekBtn').onclick = function () { if (turn && !turn.over) armCover(); };
       $('#endBtn').onclick = function () { if (!turn.over) endTurn(false); };
+    }
+    function setCovered(on) {
+      var card = $('#word'), face = $('#face');
+      if (!card || !face) return;
+      card.classList.toggle('is-covered', !!on);
+      face.setAttribute('aria-hidden', on ? 'true' : 'false');
+    }
+    function armCover() {
+      clearCover();
+      setCovered(false);
+      if (!coverEnabled() || !turn || turn.over) return;
+      coverTimer = setTimeout(function () {
+        coverTimer = null;
+        if (!turn || turn.over) return;
+        setCovered(true);
+      }, 2000);
     }
     function turnPoints() { return turn.entries.reduce(function (n, e) { return n + (e.kind === 'ok' ? 1 : e.kind === 'foul' ? -1 : 0); }, 0); }
     function showNext() {
@@ -162,7 +186,8 @@
       var it = turn.cur, long = it.w.length > 9;
       var h = '<div class="cat">' + esc(it.c) + '</div><div class="w' + (long ? ' long' : '') + '">' + esc(it.w) + '</div>';
       if (cfg.mode === 'taboo' && it.f) h += '<div class="tr-forbid-title">🚫 이 말은 쓰면 안 돼요</div><div class="tr-forbid">' + it.f.map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('') + '</div>';
-      $('#word').innerHTML = h;
+      $('#face').innerHTML = h;
+      armCover();
       $('#passLeft').textContent = turn.passLeft === Infinity ? '무제한' : '남은 ' + turn.passLeft + '번';
       $('#passBtn').disabled = turn.passLeft <= 0;
       $('#turnPts').textContent = turnPoints() + '점';

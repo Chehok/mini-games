@@ -7,7 +7,7 @@
   <title>몸으로 말해요 · Mini Games</title>
   <meta name="description" content="말 없이 몸짓으로만 설명하고, 팀원들이 정답을 맞히는 파티 게임. 팀전, 제한 시간, 패스 횟수를 정할 수 있어요.">
   <meta name="color-scheme" content="light dark">
-  <link rel="stylesheet" href="../assets/style.css?v=05b54d18">
+  <link rel="stylesheet" href="../assets/style.css?v=9b61b899">
 </head>
 <body data-game="charades">
   <header class="site-header">
@@ -18,13 +18,13 @@
   <main class="game" id="app"></main>
 
 <script src="../assets/common.js?v=adb7274d"></script>
-<script src="../assets/teamround.js?v=91d59ea3"></script>
+<script src="../assets/teamround.js?v=4d8d48cb"></script>
 <script src="words.js?v=3fa38f41"></script>
 <script>
 TeamRound.start({
   key: 'charades', emoji: '🤸', mode: 'act', timeOptions: [60, 90, 120], defaultTime: 60,
   intro: '한 사람이 단어를 보고 말 없이 몸으로만 설명해요.\n같은 팀이 시간 안에 최대한 많이 맞혀 보세요!',
-  readyNote: '휴대폰은 연기하는 사람이 받아 주세요.\n맞히는 팀원에게는 화면이 보이지 않게 가려야 해요!\n(말하기, 소리 내기, 글자 쓰기는 금지)',
+  readyNote: '휴대폰은 연기하는 사람이 받아 주세요.\n단어는 2초 뒤에 가려져요. 카드를 누르면 다시 보여요.\n(말하기, 소리 내기, 글자 쓰기는 금지)',
   countNote: '연기자는 화면을 가리고 준비하세요!',
   cats: window.CHARADES_DATA.map(function (c) {
     return { name: c.cat, emoji: c.emoji, group: c.group, items: c.words.split(',').map(function (w) { return { w: w.trim() }; }) };

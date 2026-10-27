@@ -7,7 +7,7 @@
   <title>스피드 퀴즈 · Mini Games</title>
   <meta name="description" content="말로 설명해서 팀원이 정답을 맞히는 스피드 퀴즈. 일반 카테고리와 성경 카테고리가 있어요.">
   <meta name="color-scheme" content="light dark">
-  <link rel="stylesheet" href="../assets/style.css?v=05b54d18">
+  <link rel="stylesheet" href="../assets/style.css?v=9b61b899">
 </head>
 <body data-game="speed">
   <header class="site-header">
@@ -18,7 +18,7 @@
   <main class="game" id="app"></main>
 
 <script src="../assets/common.js?v=adb7274d"></script>
-<script src="../assets/teamround.js?v=91d59ea3"></script>
+<script src="../assets/teamround.js?v=4d8d48cb"></script>
 <script src="../charades/words.js?v=3fa38f41"></script>
 <script src="../chosung/words.js?v=fbd96b9d"></script>
 <script src="words.js?v=b6b5dd40"></script>
@@ -35,7 +35,7 @@
   TeamRound.start({
     key: 'speed', emoji: '⚡', mode: 'explain', timeOptions: [60, 90, 120], defaultTime: 60,
     intro: '한 사람이 단어를 보고 말로 설명하면 팀원이 맞혀요.\n정답 단어(와 그 일부)는 말하면 안 돼요!',
-    readyNote: '휴대폰은 설명하는 사람이 받아 주세요.\n맞히는 팀원에게는 화면이 보이지 않게 가려야 해요!\n(정답 단어를 직접 말하거나 영어로 바꿔 말하면 반칙)',
+    readyNote: '휴대폰은 설명하는 사람이 받아 주세요.\n단어는 2초 뒤에 가려져요. 카드를 누르면 다시 보여요.\n(정답 단어를 직접 말하거나 영어로 바꿔 말하면 반칙)',
     countNote: '설명하는 사람은 화면을 가리고 준비하세요!',
     cats: cats
   });
