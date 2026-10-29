@@ -60,30 +60,69 @@
     toastTimer = setTimeout(function () { el.classList.remove('show'); }, ms || 1600);
   };
 
-  // Result dialog. opts: {title, text, buttons:[{label, primary, onClick}]}
+  var dialogId = 0, activeDialog = null;
+  // html is trusted, locally generated markup only. keep leaves a button's dialog open.
   MG.dialog = function (opts) {
+    if (activeDialog) activeDialog.close();
+    var previous = document.activeElement;
     var ov = document.createElement('div');
     ov.className = 'overlay show';
     var d = document.createElement('div');
     d.className = 'dialog'; d.setAttribute('role', 'dialog'); d.setAttribute('aria-modal', 'true');
-    var h = document.createElement('h2'); h.textContent = opts.title;
+    d.tabIndex = -1;
+    var h = document.createElement('h2'); h.textContent = opts.title; h.id = 'mg-dialog-' + (++dialogId);
+    d.setAttribute('aria-labelledby', h.id);
     var p = document.createElement('p'); p.textContent = opts.text || '';
     var row = document.createElement('div'); row.className = 'row';
-    function close() { if (ov.parentNode) ov.parentNode.removeChild(ov); document.removeEventListener('keydown', onKey, true); }
-    function onKey(e) { if (e.key === 'Escape') close(); }
+    var closed = false;
+    var background = Array.from(document.body.children).filter(function (el) { return el !== ov; });
+    var inertBefore = background.map(function (el) { return el.inert; });
+    function close() {
+      if (closed) return;
+      closed = true;
+      if (ov.parentNode) ov.parentNode.removeChild(ov);
+      document.removeEventListener('keydown', onKey, true);
+      document.removeEventListener('focusin', onFocus, true);
+      background.forEach(function (el, i) { el.inert = inertBefore[i]; });
+      activeDialog = null;
+      if (previous && previous.isConnected) previous.focus();
+    }
+    function focusables() {
+      return Array.from(d.querySelectorAll('button, a[href], input, select, textarea, [tabindex]')).filter(function (el) {
+        return !el.disabled && el.tabIndex >= 0 && el.getClientRects().length;
+      });
+    }
+    function onFocus(e) { if (!d.contains(e.target)) (focusables()[0] || d).focus(); }
+    function onKey(e) {
+      e.stopPropagation();
+      if (e.key === 'Escape') { e.preventDefault(); close(); }
+      else if (e.key === 'Tab') {
+        var all = focusables(), first = all[0] || d, last = all[all.length - 1] || d;
+        if (!d.contains(document.activeElement) || (e.shiftKey ? document.activeElement === first : document.activeElement === last) || !all.length) {
+          e.preventDefault(); (e.shiftKey ? last : first).focus();
+        }
+      }
+    }
     (opts.buttons || [{ label: '확인', primary: true }]).forEach(function (b, i) {
       var btn = document.createElement('button');
       btn.className = 'btn' + (b.primary ? ' primary' : '');
       btn.textContent = b.label;
-      btn.addEventListener('click', function () { close(); b.onClick && b.onClick(); });
+      btn.type = 'button';
+      btn.addEventListener('click', function () { if (!b.keep) close(); b.onClick && b.onClick(btn); });
       row.appendChild(btn);
-      if (i === 0 || b.primary) setTimeout(function () { btn.focus(); }, 0);
     });
-    d.appendChild(h); d.appendChild(p); d.appendChild(row); ov.appendChild(d);
+    d.appendChild(h);
+    if (opts.html) { var content = document.createElement('div'); content.innerHTML = opts.html; d.appendChild(content); }
+    else d.appendChild(p);
+    d.appendChild(row); ov.appendChild(d);
     ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
     document.addEventListener('keydown', onKey, true);
     document.body.appendChild(ov);
-    return { close: close };
+    background.forEach(function (el) { el.inert = true; });
+    document.addEventListener('focusin', onFocus, true);
+    activeDialog = { close: close };
+    (row.querySelector('.primary') || focusables()[0] || d).focus();
+    return activeDialog;
   };
 
   // Seeded PRNG (mulberry32)
