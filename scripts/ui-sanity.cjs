@@ -56,10 +56,11 @@ function contrast(fg, bg) {
   await cdp('Page.enable'); await cdp('Runtime.enable'); await cdp('Log.enable');
   const base='http://127.0.0.1:' + server.address().port + '/';
   const pages=['', ...fs.readdirSync(root).filter(d=>fs.existsSync(path.join(root,d,'index.html')))];
-  for (const width of [360,1280]) for (const theme of ['light','dark']) {
+  for (const width of [320,360,390,1280]) for (const theme of ['light','dark']) {
     await cdp('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});
     await cdp('Emulation.setEmulatedMedia',{features:[{name:'prefers-color-scheme',value:theme}]});
     for (const page of pages) {
+      if ((width===320 || width===390) && page!=='wordle') continue;
       await loaded(base+(page?page+'/':''));
       assert(await evaluate('document.documentElement.scrollWidth <= innerWidth'), `${page}: overflow at ${width} ${theme}`);
       assert(await evaluate('!!document.querySelector("main")'), page+': main landmark');
@@ -69,7 +70,14 @@ function contrast(fg, bg) {
         const result=[pair('--accent-text','--accent'),pair('--accent-ink','--surface'),pair('--muted','--surface-2')]; el.remove(); return result;
       })()`);
       for(const pair of colors) assert(contrast(...pair)>=4.5, `${page} ${theme}: contrast ${pair} = ${contrast(...pair)}`);
-      assert(await evaluate(`Array.from(document.querySelectorAll('button:not(.cell):not(.tile)')).filter(e=>e.getClientRects().length).every(e=>{const r=e.getBoundingClientRect();return r.height>=44 && r.width>=44;})`), page+': control size');
+      assert(await evaluate(`Array.from(document.querySelectorAll('button:not(.cell):not(.tile):not(.key)')).filter(e=>e.getClientRects().length).every(e=>{const r=e.getBoundingClientRect();return r.height>=44 && r.width>=44;})`), page+': control size');
+      if(page==='wordle') assert(await evaluate(`(() => {
+        const rows=Array.from(document.querySelectorAll('#kb .krow'));
+        const expected=[['q','w','e','r','t','y','u','i','o','p'],['a','s','d','f','g','h','j','k','l'],['Enter','z','x','c','v','b','n','m','⌫']];
+        return rows.length===3 && rows.every((row,i)=>JSON.stringify(Array.from(row.querySelectorAll('.key')).map(k=>k.dataset.k))===JSON.stringify(expected[i]) && new Set(Array.from(row.children).map(k=>Math.round(k.getBoundingClientRect().top))).size===1 && Array.from(row.children).every(k=>k.getBoundingClientRect().height>=44));
+      })()`), `wordle: keyboard layout at ${width} ${theme}`);
+      if(page==='wordle') assert(await evaluate(`Array.from(document.querySelectorAll('#kb .key')).every(k=>{const r=k.getBoundingClientRect();return r.left>=0 && r.right<=innerWidth;})`), `wordle: keyboard key bounds at ${width} ${theme}`);
+      if(page==='sudoku') assert(await evaluate(`Array.from(document.querySelectorAll('#pad button')).every(b=>{const c=b.querySelector('small').getBoundingClientRect(),r=b.getBoundingClientRect(),s=getComputedStyle(b);return s.display==='flex' && s.flexDirection==='column' && c.top>=r.top && c.bottom<=r.bottom;})`), `sudoku: keypad count overlap at ${width} ${theme}`);
       if(page==='minesweeper') for(const level of ['intermediate','expert']) {
         await evaluate(`document.querySelector('[data-level="${level}"]').click()`);
         assert(await evaluate('document.querySelector(".m").getBoundingClientRect().width >= 32'), 'mines cell size');
@@ -88,6 +96,10 @@ function contrast(fg, bg) {
       if(width===360 && theme==='light' && ['sudoku','wordle','minesweeper'].includes(page)) {
         const png=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
         fs.writeFileSync(path.join(profile,page+'.png'),Buffer.from(png.data,'base64'));
+      }
+      if(page==='wordle') {
+        const png=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+        fs.writeFileSync(path.join(profile,`wordle-${width}-${theme}.png`),Buffer.from(png.data,'base64'));
       }
     }
   }
@@ -142,6 +154,6 @@ function contrast(fg, bg) {
   })`);
   assert(counts.parses<=1 && counts.measures===0 && counts.sizes===0, 'roulette frame cache: '+JSON.stringify(counts));
   assert.equal(errors.length,0,JSON.stringify(errors));
-  console.log(`PASS: ${pages.length} pages × 360/1280px × light/dark, contrast, controls, mines zoom, tabs, dialog focus/Tab/Escape, game labels, long names, roulette cache`);
+  console.log(`PASS: ${pages.length} pages × 360/1280px × light/dark, Wordle keyboard layout/bounds at 320/360/390/1280px, contrast, controls, mines zoom, tabs, dialog focus/Tab/Escape, game labels, long names, roulette cache`);
   console.log('Screenshots:',profile);
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(()=>{if(ws)ws.close();if(child)child.kill();server.close();});
