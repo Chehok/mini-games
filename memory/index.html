@@ -7,7 +7,7 @@
   <title>카드 짝맞추기 · Mini Games</title>
   <meta name="description" content="이모지 카드를 뒤집어 같은 그림의 짝을 찾는 기억력 게임. 난이도별 최고 기록이 저장돼요.">
   <meta name="color-scheme" content="light dark">
-  <link rel="stylesheet" href="../assets/style.css?v=9d52f7d6">
+  <link rel="stylesheet" href="../assets/style.css?v=82472e6e">
   <style>
     .grid { --cols: 4; display: grid; grid-template-columns: repeat(var(--cols), 1fr); gap: 8px; width: min(100%, 520px); margin: 0 auto; }
     .card {
@@ -60,7 +60,7 @@
     <p class="hint">카드를 두 장씩 뒤집어 같은 그림을 찾아보세요.</p>
   </main>
 
-<script src="../assets/common.js?v=adb7274d"></script>
+<script src="../assets/common.js?v=b8e111b3"></script>
 <script>
 (function () {
   'use strict';
@@ -90,7 +90,7 @@
     timer.reset(); movesEl.textContent = 0; showBest(); layoutCols();
     gridEl.innerHTML = ''; els = [];
     deck.forEach(function (e, i) {
-      var b = document.createElement('button'); b.type = 'button'; b.className = 'card'; b.dataset.i = i; b.setAttribute('aria-label', '카드 ' + (i + 1));
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'card'; b.dataset.i = i; b.setAttribute('aria-label', '카드 ' + (i + 1) + ', 뒷면');
       b.innerHTML = '<span class="in"><span class="face back">?</span><span class="face front"></span></span>';
       b.querySelector('.front').textContent = e;
       gridEl.appendChild(b); els.push(b);
@@ -103,17 +103,18 @@
     if (el.classList.contains('up') || el.classList.contains('matched')) return;
     if (!started) { started = true; timer.start(); }
     el.classList.add('up');
+    el.setAttribute('aria-label', '카드 ' + (i + 1) + ', ' + deck[i] + ', 앞면');
     if (first < 0) { first = i; return; }
     var a = first, b = i; first = -1; moves++; movesEl.textContent = moves;
     if (deck[a] === deck[b]) {
-      [a, b].forEach(function (k) { els[k].classList.remove('up'); els[k].classList.add('matched'); els[k].disabled = true; });
+      [a, b].forEach(function (k) { els[k].classList.remove('up'); els[k].classList.add('matched'); els[k].setAttribute('aria-label', '카드 ' + (k + 1) + ', ' + deck[k] + ', 짝 맞춤'); els[k].disabled = true; });
       matched += 2;
       if (matched === deck.length) { timer.stop(); busy = true; pendingTimer = setTimeout(win, 600); }
     } else {
       busy = true;
       els[a].classList.add('bad'); els[b].classList.add('bad');
       pendingTimer = setTimeout(function () {
-        [a, b].forEach(function (k) { els[k].classList.remove('up', 'bad'); });
+        [a, b].forEach(function (k) { els[k].classList.remove('up', 'bad'); els[k].setAttribute('aria-label', '카드 ' + (k + 1) + ', 뒷면'); });
         busy = false;
       }, 800);
     }

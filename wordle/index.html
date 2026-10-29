@@ -7,9 +7,9 @@
   <title>워들 · Mini Games</title>
   <meta name="description" content="영어 5글자 단어를 6번 안에 맞히는 워들. 매일 바뀌는 오늘의 단어와 무한 모드, 통계와 결과 공유를 지원해요.">
   <meta name="color-scheme" content="light dark">
-  <link rel="stylesheet" href="../assets/style.css?v=9d52f7d6">
+  <link rel="stylesheet" href="../assets/style.css?v=82472e6e">
   <style>
-    :root { --c-correct: #3aa45c; --c-present: #d4a017; --c-absent: #787c8a; --tile-border: #c5c9da; }
+    :root { --c-correct: #237a43; --c-present: #856000; --c-absent: #626675; --tile-border: #c5c9da; }
     @media (prefers-color-scheme: dark) { :root { --c-absent: #3b3f52; --tile-border: #414661; } }
     main.game { display: flex; flex-direction: column; align-items: center; padding-bottom: 20px; }
     .board { display: grid; grid-template-rows: repeat(6, 1fr); gap: 6px; width: min(100%, 320px, 50vh * .83); margin: 6px auto 14px; }
@@ -38,6 +38,12 @@
     }
     .key.wide { flex: 1.6; max-width: 70px; font-size: .8rem; }
     .key:active { filter: brightness(.9); }
+    @media (max-width: 540px) {
+      .kb { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+      .kb .krow { display: contents; }
+      .key { min-width: 44px; max-width: none; width: 100%; height: 48px; }
+      .key.wide { grid-column: span 2; max-width: none; }
+    }
     .modebar { display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; margin-bottom: 4px; }
     .modebar .btn { padding: 8px 12px; }
     .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 12px 0; }
@@ -66,11 +72,17 @@
       <button class="btn" id="statsBtn" aria-label="통계">📊</button>
       <button class="btn primary" id="newBtn" hidden>새 단어</button>
     </div>
-    <div class="board" id="board" aria-label="워들 판"></div>
+    <div class="board" id="board" role="grid" aria-label="워들 판"></div>
     <div class="kb" id="kb"></div>
+    <details class="panel" style="width:100%; margin-top:14px">
+      <summary>게임 방법 · 색상 안내</summary>
+      <p class="hint">영어 5글자 단어를 6번 안에 맞혀요.</p>
+      <p class="hint">🟩 초록: 글자와 위치가 맞아요<br>🟨 노랑: 글자는 있지만 위치가 달라요<br>⬛ 회색: 단어에 없는 글자예요</p>
+    </details>
+    <p class="sr-only" id="wordleStatus" role="status" aria-live="polite"></p>
   </main>
 
-<script src="../assets/common.js?v=adb7274d"></script>
+<script src="../assets/common.js?v=b8e111b3"></script>
 <script src="words.js?v=8c340e23"></script>
 <script>
 (function () {
@@ -118,7 +130,7 @@
   var tiles = [], rows = [];
   for (var r = 0; r < MAX; r++) {
     var row = document.createElement('div'); row.className = 'brow'; row.setAttribute('role', 'row');
-    for (var c = 0; c < LEN; c++) { var t = document.createElement('div'); t.className = 'tile'; row.appendChild(t); tiles.push(t); }
+    for (var c = 0; c < LEN; c++) { var t = document.createElement('div'); t.className = 'tile'; t.setAttribute('role', 'gridcell'); row.appendChild(t); tiles.push(t); }
     boardEl.appendChild(row); rows.push(row);
   }
   var keyEls = {};
@@ -135,10 +147,15 @@
 
   function tileAt(r, c) { return tiles[r * LEN + c]; }
 
+  var stateNames = { correct: '정확한 위치', present: '다른 위치에 있음', absent: '단어에 없음' };
+  function labelTile(r, c, letter, state) {
+    tileAt(r, c).setAttribute('aria-label', (r + 1) + '행 ' + (c + 1) + '열, ' + (letter ? letter.toUpperCase() : '빈칸') + (state ? ', ' + stateNames[state] : ''));
+  }
   function paintRow(r, word, states) {
     for (var c = 0; c < LEN; c++) {
       var t = tileAt(r, c);
       t.textContent = word[c] || '';
+      labelTile(r, c, word[c], states && states[c]);
       t.className = 'tile' + (word[c] ? ' filled' : '') + (states ? ' ' + states[c] : '');
     }
   }
@@ -223,10 +240,11 @@
     for (var c = 0; c < LEN; c++) (function (c) {
       var t = tileAt(r, c);
       later(function () { t.classList.add('flip'); }, c * 250);
-      later(function () { t.classList.add(states[c]); }, c * 250 + 250);
+      later(function () { t.classList.add(states[c]); labelTile(r, c, g[c], states[c]); }, c * 250 + 250);
     })(c);
     later(function () {
       busy = false; paintKeys();
+      document.getElementById('wordleStatus').textContent = g.toUpperCase().split('').map(function (ch, i) { return ch + ', ' + stateNames[states[i]]; }).join('. ');
       if (g === answer) {
         won = over = true;
         for (var c = 0; c < LEN; c++) (function (c) { later(function () { tileAt(r, c).classList.add('win'); }, c * 80); })(c);
@@ -269,23 +287,7 @@
     return h + '</div>';
   }
 
-  function showDialog(opts) {
-    var ov = document.createElement('div'); ov.className = 'overlay show';
-    var d = document.createElement('div'); d.className = 'dialog'; d.setAttribute('role', 'dialog'); d.setAttribute('aria-modal', 'true');
-    d.innerHTML = '<h2></h2>' + (opts.html || '') + '<div class="row btns"></div>';
-    d.querySelector('h2').textContent = opts.title;
-    var btns = d.querySelector('.btns');
-    function close() { ov.remove(); document.removeEventListener('keydown', onKey, true); }
-    function onKey(e) { if (e.key === 'Escape') close(); }
-    opts.buttons.forEach(function (b) {
-      var el = document.createElement('button'); el.className = 'btn' + (b.primary ? ' primary' : ''); el.textContent = b.label;
-      el.addEventListener('click', function () { b.keep ? b.onClick(el) : (close(), b.onClick && b.onClick()); });
-      btns.appendChild(el);
-    });
-    ov.appendChild(d); ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
-    document.addEventListener('keydown', onKey, true);
-    document.body.appendChild(ov);
-  }
+  var showDialog = MG.dialog;
 
   function showResult() {
     var s = getStats(mode);

@@ -7,7 +7,7 @@
   <title>라이어 게임 · Mini Games</title>
   <meta name="description" content="한 명만 주제어를 모르는 라이어! 휴대폰을 돌려 보며 대화로 라이어를 찾아내는 파티 게임. 성경 주제도 있어요.">
   <meta name="color-scheme" content="light dark">
-  <link rel="stylesheet" href="../assets/style.css?v=9d52f7d6">
+  <link rel="stylesheet" href="../assets/style.css?v=82472e6e">
   <style>
     .secret {
       min-height: 220px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
@@ -21,6 +21,9 @@
     .pname { font-size: 1.6rem; font-weight: 900; margin: 6px 0; }
     .votegrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 10px 0; }
     .vote { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 14px; background: var(--surface-2); border: 2px solid var(--border); font-weight: 800; touch-action: manipulation; }
+    .vote > span:first-child { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+    .vote button { flex-shrink: 0; }
+    @media (max-width: 600px) { .votegrid { grid-template-columns: minmax(0, 1fr); } }
     .vote .cnt { margin-left: auto; font-size: 1.3rem; font-variant-numeric: tabular-nums; }
     .vote.top { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 12%, var(--surface)); }
     .verdict { font-size: 1.5rem; font-weight: 900; margin: 8px 0; }
@@ -35,7 +38,7 @@
   </header>
   <main class="game" id="app"></main>
 
-<script src="../assets/common.js?v=adb7274d"></script>
+<script src="../assets/common.js?v=b8e111b3"></script>
 <script src="words.js?v=481c0899"></script>
 <script>
 (function () {

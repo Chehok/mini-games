@@ -7,14 +7,14 @@
   <title>초성 퀴즈 · Mini Games</title>
   <meta name="description" content="초성만 보고 정답을 맞혀 보세요. 혼자서 10문제 도전, 여럿이서 한 화면으로 즐기는 파티 모드. 성경 퀴즈팩도 있어요.">
   <meta name="color-scheme" content="light dark">
-  <link rel="stylesheet" href="../assets/style.css?v=9d52f7d6">
+  <link rel="stylesheet" href="../assets/style.css?v=82472e6e">
   <style>
     .modebar { display: flex; justify-content: center; margin-bottom: 12px; }
     .cs { display: flex; flex-wrap: wrap; justify-content: center; gap: .55em .9em; margin: 0; --ts: 2.6rem; }
     .cw { display: inline-flex; gap: .12em; }
     .ct {
       display: inline-grid; place-items: center; width: 1.2em; height: 1.4em; font-size: var(--ts); font-weight: 900; line-height: 1;
-      background: var(--surface-2); border: 2px solid var(--border); border-radius: .22em; color: var(--accent);
+      background: var(--surface-2); border: 2px solid var(--border); border-radius: .22em; color: var(--accent-ink);
     }
     .ct.other { background: transparent; border-color: transparent; width: auto; min-width: .6em; color: var(--text); }
     .ct.rev { color: var(--text); background: color-mix(in srgb, var(--accent) 18%, var(--surface)); border-color: var(--accent); }
@@ -23,7 +23,7 @@
     .qcard.party { padding: 28px 10px 20px; }
     .qcard.party .cs { --ts: 3.4rem; }
     .qcat { font-size: .8rem; font-weight: 700; color: var(--muted); margin-bottom: 12px; }
-    .qhint { min-height: 1.4em; margin: 12px 0 0; font-weight: 700; color: var(--accent); }
+    .qhint { min-height: 1.4em; margin: 12px 0 0; font-weight: 700; color: var(--accent-ink); }
     .qfeed { min-height: 1.4em; margin: 8px 0 0; font-weight: 800; }
     .qfeed.bad { color: var(--bad); } .qfeed.good { color: var(--good); }
     .shake { animation: shake .35s; }
@@ -36,7 +36,7 @@
     .reslist { list-style: none; padding: 0; margin: 10px 0; text-align: left; display: grid; gap: 4px; font-size: .9rem; }
     .reslist li { display: flex; gap: 8px; align-items: center; padding: 6px 10px; background: var(--surface-2); border-radius: 10px; }
     .reslist .pts { margin-left: auto; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
-    .bigscore { font-size: 2.6rem; font-weight: 900; color: var(--accent); line-height: 1.1; }
+    .bigscore { font-size: 2.6rem; font-weight: 900; color: var(--accent-ink); line-height: 1.1; }
     .tgrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
     .tcard { background: var(--surface); border: 2px solid var(--border); border-radius: 16px; padding: 10px; text-align: center; box-shadow: var(--shadow); }
     .tcard .input { text-align: center; font-weight: 800; padding: 6px 8px; margin-bottom: 4px; }
@@ -144,7 +144,7 @@
     </section>
   </main>
 
-<script src="../assets/common.js?v=adb7274d"></script>
+<script src="../assets/common.js?v=b8e111b3"></script>
 <script src="words.js?v=43aebd93"></script>
 <script>
 (function () {

@@ -7,7 +7,7 @@
   <title>OX 퀴즈 · Mini Games</title>
   <meta name="description" content="큰 화면으로 함께 즐기는 OX 퀴즈. 성경, 일반 상식, 과학, 한국 문화·역사 문제와 해설이 있어요.">
   <meta name="color-scheme" content="light dark">
-  <link rel="stylesheet" href="../assets/style.css?v=9d52f7d6">
+  <link rel="stylesheet" href="../assets/style.css?v=82472e6e">
   <style>
     main.game.wide { max-width: 860px; }
     .ox-q {
@@ -31,6 +31,10 @@
     .ox-exp b { font-size: 1.15em; }
     .ox-top { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
     .ox-top .num { font-weight: 800; }
+    @media (prefers-color-scheme: dark) {
+      .ox-ans .sym.o { color: #93c5fd; }
+      .ox-ans .sym.x { color: #fca5a5; }
+    }
   </style>
 </head>
 <body data-game="ox">
@@ -41,7 +45,7 @@
   </header>
   <main class="game" id="app"></main>
 
-<script src="../assets/common.js?v=adb7274d"></script>
+<script src="../assets/common.js?v=b8e111b3"></script>
 <script src="questions.js?v=bbd376e4"></script>
 <script>
 (function () {

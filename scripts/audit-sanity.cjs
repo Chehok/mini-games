@@ -4,10 +4,10 @@ const vm = require('vm');
 const assert = require('assert/strict');
 function read(p) { return fs.readFileSync(p, 'utf8'); }
 function inline(p) { return [...read(p).matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].map(m=>m[1]).filter(Boolean).join('\n'); }
-for (const dir of ['2048','memory','slide-puzzle','wordle','chosung','liar','tools','ox','telepathy','charades','speed','taboo']) {
+for (const dir of ['sudoku','minesweeper','2048','memory','slide-puzzle','wordle','chosung','liar','tools','ox','telepathy','charades','speed','taboo']) {
   new vm.Script(inline(dir+'/index.html'), {filename: dir+'/index.html'});
 }
-for (const p of ['assets/teamround.js','tools/logic.js','charades/words.js','speed/words.js','chosung/words.js','ox/questions.js','taboo/words.js','wordle/words.js']) new vm.Script(read(p), {filename:p});
+for (const p of ['assets/common.js','assets/teamround.js','tools/logic.js','charades/words.js','speed/words.js','chosung/words.js','ox/questions.js','taboo/words.js','wordle/words.js']) new vm.Script(read(p), {filename:p});
 const ctx = {window:{}}; vm.runInNewContext(read('tools/logic.js'),ctx);
 const L = ctx.window.ToolsLogic;
 assert.equal(L.splitTeams(['가/toString','나/constructor','다/__proto__','라/hasOwnProperty'],2).flat().length,4);

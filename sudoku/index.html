@@ -7,7 +7,7 @@
   <title>스도쿠 · Mini Games</title>
   <meta name="description" content="정답이 하나뿐인 스도쿠 퍼즐. 쉬움·보통·어려움, 메모 모드, 같은 숫자 강조, 타이머를 지원해요.">
   <meta name="color-scheme" content="light dark">
-  <link rel="stylesheet" href="../assets/style.css?v=9d52f7d6">
+  <link rel="stylesheet" href="../assets/style.css?v=82472e6e">
   <style>
     .board-wrap { container-type: inline-size; width: min(100%, 460px); margin: 0 auto; }
     .board {
@@ -19,31 +19,30 @@
       position: relative; display: flex; align-items: center; justify-content: center;
       border: 0; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
       background: var(--surface); padding: 0; margin: 0; border-radius: 0;
-      font-size: 5.6cqw; font-weight: 600; color: var(--accent); line-height: 1;
+      font-size: 5.6cqw; font-weight: 600; color: var(--accent-ink); line-height: 1;
     }
     .cell:nth-child(9n+3), .cell:nth-child(9n+6) { border-right: 2px solid var(--text); }
     .cell:nth-child(9n) { border-right: 0; }
     .cell:nth-child(n+19):nth-child(-n+27), .cell:nth-child(n+46):nth-child(-n+54) { border-bottom: 2px solid var(--text); }
     .cell:nth-child(n+73) { border-bottom: 0; }
     .cell.given { color: var(--text); font-weight: 800; }
-    .cell.peer { background: color-mix(in srgb, var(--accent) 9%, var(--surface)); }
-    .cell.same { background: color-mix(in srgb, var(--accent) 28%, var(--surface)); }
-    .cell.sel { background: color-mix(in srgb, var(--accent) 45%, var(--surface)); }
-    .cell.wrong { color: var(--bad); background: color-mix(in srgb, var(--bad) 18%, var(--surface)); }
-    .cell.wrong.sel { background: color-mix(in srgb, var(--bad) 35%, var(--surface)); }
+    .cell.peer { background: color-mix(in srgb, var(--accent) 4%, var(--surface)); }
+    .cell.same { background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+    .cell.sel { background: color-mix(in srgb, var(--accent) 8%, var(--surface)); box-shadow: inset 0 0 0 2px var(--accent-ink); }
+    .cell.wrong { color: var(--bad); background: color-mix(in srgb, var(--bad) 10%, var(--surface)); }
     .cell:focus-visible { outline-offset: -3px; z-index: 1; }
     .notes { position: absolute; inset: 1px; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr);
-      font-size: 2.5cqw; font-weight: 600; color: var(--muted); }
+      font-size: max(11px, 2.5cqw); font-weight: 600; color: var(--muted); }
     .notes span { display: flex; align-items: center; justify-content: center; }
-    .notes span.hl { color: var(--accent); font-weight: 800; }
-    .pad { display: grid; grid-template-columns: repeat(9, 1fr); gap: 5px; width: min(100%, 460px); margin: 12px auto 0; }
+    .notes span.hl { color: var(--accent-ink); font-weight: 800; }
+    .pad { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; width: min(100%, 460px); margin: 12px auto 0; }
     .pad button {
-      position: relative; padding: 0; aspect-ratio: 3 / 4; max-height: 64px; width: 100%;
+      position: relative; padding: 0; min-height: 52px; width: 100%;
       font-size: 1.35rem; font-weight: 800; border-radius: 10px;
     }
-    .pad button small { position: absolute; bottom: 3px; left: 0; right: 0; font-size: .6rem; color: var(--muted); font-weight: 600; }
-    .pad button.done { opacity: .3; }
-    .pad.notes-on button { color: var(--accent); }
+    .pad button small { position: absolute; bottom: 3px; left: 0; right: 0; font-size: .7rem; color: var(--muted); font-weight: 600; }
+    .pad button.done { border-style: dashed; box-shadow: none; }
+    .pad.notes-on button { color: var(--accent-ink); }
     .tools { display: flex; gap: 8px; justify-content: center; margin-top: 12px; flex-wrap: wrap; }
   </style>
 </head>
@@ -75,7 +74,7 @@
     <p class="hint">키보드: 숫자 입력 · 방향키 이동 · N 메모 · Backspace 지우기</p>
   </main>
 
-<script src="../assets/common.js?v=adb7274d"></script>
+<script src="../assets/common.js?v=b8e111b3"></script>
 <script>
 (function () {
   'use strict';
@@ -195,6 +194,12 @@
         else if (ROW[c] === ROW[sel] || COL[c] === COL[sel] || BOX[c] === BOX[sel]) cls += ' peer';
       }
       if (v && !state.puzzle[c] && v !== state.solution[c]) cls += ' wrong';
+      var memo = [];
+      for (var digit = 1; digit <= 9; digit++) if (state.notes[c] & (1 << digit)) memo.push(digit);
+      el.setAttribute('aria-label', (ROW[c] + 1) + '행 ' + (COL[c] + 1) + '열, ' +
+        (v ? '숫자 ' + v : memo.length ? '메모 ' + memo.join(', ') : '빈칸') +
+        (state.puzzle[c] ? ', 주어진 숫자' : '') + (cls.indexOf('wrong') >= 0 ? ', 오류' : ''));
+      el.setAttribute('aria-selected', c === sel ? 'true' : 'false');
       el.className = cls;
       if (v) { el.textContent = v; counts[v]++; }
       else if (state.notes[c]) {

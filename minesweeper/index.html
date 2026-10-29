@@ -7,7 +7,7 @@
   <title>지뢰찾기 · Mini Games</title>
   <meta name="description" content="지뢰를 피해 모든 안전한 칸을 여는 고전 게임. 초급·중급·고급, 깃발 모드와 길게 누르기를 지원해요.">
   <meta name="color-scheme" content="light dark">
-  <link rel="stylesheet" href="../assets/style.css?v=9d52f7d6">
+  <link rel="stylesheet" href="../assets/style.css?v=82472e6e">
   <style>
     main.game { max-width: 1100px; }
     .scroller { overflow: auto; max-width: 100%; text-align: center; padding: 2px 0 8px; -webkit-overflow-scrolling: touch; }
@@ -31,8 +31,12 @@
     .m.boom { background: var(--bad); }
     .m.wrongflag::after { content: "❌"; position: absolute; font-size: calc(var(--cs) * .4); }
     .m.cur { outline: 3px solid var(--text); outline-offset: -3px; }
-    .n1 { color: #2563eb; } .n2 { color: #16a34a; } .n3 { color: #dc2626; } .n4 { color: #7c3aed; }
-    .n5 { color: #b45309; } .n6 { color: #0891b2; } .n7 { color: var(--text); } .n8 { color: var(--muted); }
+    .n1 { color: #2563eb; } .n2 { color: #15803d; } .n3 { color: #dc2626; } .n4 { color: #7c3aed; }
+    .n5 { color: #b45309; } .n6 { color: #0e7490; } .n7 { color: var(--text); } .n8 { color: var(--muted); }
+    @media (prefers-color-scheme: dark) {
+      .n1 { color: #93c5fd; } .n2 { color: #86efac; } .n3 { color: #fca5a5; }
+      .n4 { color: #c4b5fd; } .n5 { color: #fcd34d; } .n6 { color: #67e8f9; }
+    }
   </style>
 </head>
 <body data-game="minesweeper">
@@ -56,12 +60,13 @@
     <div class="scroller" id="scroller"><div class="grid" id="grid" role="grid" aria-label="지뢰찾기 판"></div></div>
     <div class="toolbar">
       <button class="btn" id="flagBtn" aria-pressed="false">🚩 깃발 모드 끔</button>
+      <button class="btn" id="zoomBtn" aria-pressed="true">큰 칸 켬</button>
       <button class="btn primary" id="newBtn">🙂 새 게임</button>
     </div>
     <p class="hint">PC: 클릭 = 열기, 우클릭 = 깃발, 숫자 칸 더블클릭 = 주변 열기<br>모바일: 탭 = 열기, 길게 누르기 또는 깃발 모드 = 깃발</p>
   </main>
 
-<script src="../assets/common.js?v=adb7274d"></script>
+<script src="../assets/common.js?v=b8e111b3"></script>
 <script>
 (function () {
   'use strict';
@@ -73,6 +78,7 @@
   var gridEl = document.getElementById('grid'), scroller = document.getElementById('scroller');
   var minesEl = document.getElementById('mines'), timeEl = document.getElementById('time'), flagBtn = document.getElementById('flagBtn');
   var levelKey = MG.store.get('ms.level', 'beginner'); if (!LEVELS[levelKey]) levelKey = 'beginner';
+  var bigCells = MG.store.get('minesweeper.bigCells', true);
   var cfg, cols, rows, mineCount, cells, els, started, over, flags, revealed, flagMode = false, cursor = 0, boomIdx = -1;
   var timer = MG.Timer(function (s) { timeEl.textContent = MG.fmtTime(s); });
 
@@ -91,7 +97,9 @@
     gridEl.style.setProperty('--gap', gap + 'px'); gridEl.style.setProperty('--pad', pad + 'px');
     var avail = scroller.clientWidth - 2 * pad - 2;
     var cs = Math.floor((avail - (cols - 1) * gap) / cols);
-    cs = Math.max(18, Math.min(38, cs));
+    cs = Math.max(bigCells ? 32 : 18, Math.min(38, cs));
+    document.getElementById('zoomBtn').setAttribute('aria-pressed', String(bigCells));
+    document.getElementById('zoomBtn').textContent = bigCells ? '큰 칸 켬' : '큰 칸 끔';
     gridEl.style.setProperty('--cs', cs + 'px');
   }
 
@@ -105,7 +113,7 @@
     gridEl.style.gridTemplateColumns = 'repeat(' + cols + ', var(--cs))';
     for (var i = 0; i < cols * rows; i++) {
       cells.push({ mine: false, adj: 0, open: false, flag: false });
-      var d = document.createElement('div'); d.className = 'm'; d.dataset.i = i; d.setAttribute('role', 'gridcell');
+      var d = document.createElement('div'); d.className = 'm'; d.dataset.i = i; d.id = 'mine-cell-' + i; d.setAttribute('role', 'gridcell');
       gridEl.appendChild(d); els.push(d);
     }
     fitCellSize(); updateMines(); render();
@@ -140,6 +148,10 @@
       if (over && c.flag && !c.mine) cls += ' flag wrongflag';
     }
     if (i === cursor && document.activeElement === gridEl) cls += ' cur';
+    el.setAttribute('aria-label', (Math.floor(i / cols) + 1) + '행 ' + (i % cols + 1) + '열, ' +
+      (c.open || (over && c.mine) ? c.mine ? '지뢰' : c.adj ? '열림, 주변 지뢰 ' + c.adj + '개' : '열림, 빈칸' : c.flag ? '깃발' : '닫힘') +
+      (over && c.flag && !c.mine ? ', 잘못된 깃발' : ''));
+    if (i === cursor) gridEl.setAttribute('aria-activedescendant', el.id);
     el.className = cls;
   }
   function render() { for (var i = 0; i < cells.length; i++) paint(i); }
@@ -256,6 +268,10 @@
     els[cursor].scrollIntoView({ block: 'nearest', inline: 'nearest' });
   });
 
+  document.getElementById('zoomBtn').addEventListener('click', function () {
+    bigCells = !bigCells; MG.store.set('minesweeper.bigCells', bigCells); fitCellSize();
+    els[cursor].scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  });
   flagBtn.addEventListener('click', function () {
     flagMode = !flagMode;
     flagBtn.setAttribute('aria-pressed', flagMode ? 'true' : 'false');
