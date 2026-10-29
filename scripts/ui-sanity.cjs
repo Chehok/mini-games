@@ -10,12 +10,13 @@ const browser = process.env.BROWSER_PATH || ['C:/Program Files/Google/Chrome/App
 assert(browser, 'Set BROWSER_PATH to Chrome or Edge');
 const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'mini-games-ui-'));
 const server = http.createServer((req, res) => {
-  const target = path.resolve(root, '.' + decodeURIComponent(req.url.split('?')[0]));
+  const target = path.resolve(root, '.' + decodeURIComponent(req.url.split('?')[0]).replace(/^\/mini-games(?=\/)/, ''));
   if (!target.startsWith(root + path.sep) && target !== root) { res.writeHead(403).end(); return; }
   const file = target.endsWith('.html') || path.extname(target) ? target : path.join(target, 'index.html');
   fs.readFile(file, (e, data) => {
     if (e) { res.writeHead(404).end(); return; }
-    res.setHeader('Content-Type', file.endsWith('.js') ? 'application/javascript' : file.endsWith('.css') ? 'text/css' : 'text/html; charset=utf-8');
+    const types = { '.js': 'application/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.webmanifest': 'application/manifest+json' };
+    res.setHeader('Content-Type', types[path.extname(file)] || 'text/html; charset=utf-8');
     res.end(data);
   });
 });
@@ -54,14 +55,38 @@ function contrast(fg, bg) {
     else if (msg.method==='Log.entryAdded' && msg.params.entry.level==='error') errors.push(msg.params.entry);
   });
   await cdp('Page.enable'); await cdp('Runtime.enable'); await cdp('Log.enable');
-  const base='http://127.0.0.1:' + server.address().port + '/';
+  const base='http://127.0.0.1:' + server.address().port + '/mini-games/';
   const pages=['', ...fs.readdirSync(root).filter(d=>fs.existsSync(path.join(root,d,'index.html')))];
   for (const width of [320,360,390,1280]) for (const theme of ['light','dark']) {
     await cdp('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});
     await cdp('Emulation.setEmulatedMedia',{features:[{name:'prefers-color-scheme',value:theme}]});
     for (const page of pages) {
-      if ((width===320 || width===390) && page!=='wordle') continue;
+      if (width===320 && page!=='wordle') continue;
       await loaded(base+(page?page+'/':''));
+      if (width===360 && theme==='light') {
+        assert.equal(await evaluate(`document.querySelector('meta[name="apple-mobile-web-app-title"]')?.content`), '\ubbf8\ub2c8\uac8c\uc784', page+': home screen title');
+        const links = await evaluate(`['apple-touch-icon','manifest','icon'].flatMap(rel => {
+          const tags = Array.from(document.head.querySelectorAll('link[rel="'+rel+'"]'));
+          if (!tags.length) throw new Error('Missing '+rel);
+          return tags.map(el => ({rel, href:el.href}));
+        })`);
+        for (const link of links) {
+          assert(link.href.startsWith(base), page+': icon/manifest outside Pages scope');
+          const response = await fetch(link.href);
+          assert(response.ok, page+': missing '+link.href);
+          if (link.rel==='manifest') {
+            const manifest = await response.json();
+            assert.equal(new URL(manifest.start_url, link.href).href, base);
+            assert.equal(new URL(manifest.scope, link.href).href, base);
+            assert(manifest.icons.some(icon=>icon.purpose==='maskable'), 'maskable icon');
+            for (const icon of manifest.icons) {
+              const url = new URL(icon.src, link.href);
+              assert(url.href.startsWith(base), 'manifest icon outside Pages scope');
+              assert((await fetch(url)).ok, 'missing manifest icon: '+url);
+            }
+          }
+        }
+      }
       assert(await evaluate('document.documentElement.scrollWidth <= innerWidth'), `${page}: overflow at ${width} ${theme}`);
       assert(await evaluate('!!document.querySelector("main")'), page+': main landmark');
       const colors = await evaluate(`(() => {
@@ -154,6 +179,7 @@ function contrast(fg, bg) {
   })`);
   assert(counts.parses<=1 && counts.measures===0 && counts.sizes===0, 'roulette frame cache: '+JSON.stringify(counts));
   assert.equal(errors.length,0,JSON.stringify(errors));
-  console.log(`PASS: ${pages.length} pages × 360/1280px × light/dark, Wordle keyboard layout/bounds at 320/360/390/1280px, contrast, controls, mines zoom, tabs, dialog focus/Tab/Escape, game labels, long names, roulette cache`);
+  console.log(`PASS: ${pages.length} pages × 360/390/1280px × light/dark, Wordle keyboard layout/bounds at 320/360/390/1280px, contrast, controls, mines zoom, tabs, dialog focus/Tab/Escape, game labels, long names, roulette cache`);
+  console.log('PASS: every page has resolving apple-touch-icon/favicon/manifest links under /mini-games/, including manifest icons and launch scope');
   console.log('Screenshots:',profile);
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(()=>{if(ws)ws.close();if(child)child.kill();server.close();});

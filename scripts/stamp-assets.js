@@ -34,7 +34,7 @@ function stamp(htmlPath) {
     var beforeHash = url.split('#')[0];
     var hash = url.slice(beforeHash.length);
     var pathOnly = beforeHash.split('?')[0];
-    if (!/\.(css|js)$/i.test(pathOnly)) return full;
+    if (!/\.(css|js|webmanifest)$/i.test(pathOnly) && !/(?:^|\/)assets\/icons\/[^/]+\.(svg|png)$/i.test(pathOnly)) return full;
     if (/^(?:[a-z]+:|\/\/)/i.test(pathOnly)) return full;
     var abs = path.resolve(path.dirname(htmlPath), pathOnly);
     var rel = path.relative(root, abs);
