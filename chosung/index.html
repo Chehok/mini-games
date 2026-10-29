@@ -7,7 +7,7 @@
   <title>초성 퀴즈 · Mini Games</title>
   <meta name="description" content="초성만 보고 정답을 맞혀 보세요. 혼자서 10문제 도전, 여럿이서 한 화면으로 즐기는 파티 모드. 성경 퀴즈팩도 있어요.">
   <meta name="color-scheme" content="light dark">
-  <link rel="stylesheet" href="../assets/style.css?v=9b61b899">
+  <link rel="stylesheet" href="../assets/style.css?v=9d52f7d6">
   <style>
     .modebar { display: flex; justify-content: center; margin-bottom: 12px; }
     .cs { display: flex; flex-wrap: wrap; justify-content: center; gap: .55em .9em; margin: 0; --ts: 2.6rem; }
@@ -145,7 +145,7 @@
   </main>
 
 <script src="../assets/common.js?v=adb7274d"></script>
-<script src="words.js?v=fbd96b9d"></script>
+<script src="words.js?v=43aebd93"></script>
 <script>
 (function () {
   'use strict';
@@ -239,11 +239,12 @@
   /* ---------- 모드 ---------- */
   var mode = 'solo', soloState = 'idle';
   function setMode(m, push) {
+    var previous = mode;
     mode = m === 'party' ? 'party' : 'solo';
     document.querySelectorAll('#modes button').forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.mode === mode ? 'true' : 'false'); });
     $('solo').hidden = mode !== 'solo'; $('party').hidden = mode !== 'party'; $('catPanel').hidden = false;
     if (push) { try { history.replaceState(null, '', '?mode=' + mode); } catch (e) { /* ignore */ } }
-    if (mode === 'party') { stopSolo(); if (!pq) nextParty(); } else { clearInterval(pTick); }
+    if (mode === 'party') { stopSolo(); if (!pq || previous !== mode) nextParty(); } else { clearInterval(pTick); }
     document.title = '초성 퀴즈 · Mini Games';
   }
   $('modes').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) setMode(b.dataset.mode, true); });

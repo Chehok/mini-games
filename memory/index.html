@@ -7,7 +7,7 @@
   <title>카드 짝맞추기 · Mini Games</title>
   <meta name="description" content="이모지 카드를 뒤집어 같은 그림의 짝을 찾는 기억력 게임. 난이도별 최고 기록이 저장돼요.">
   <meta name="color-scheme" content="light dark">
-  <link rel="stylesheet" href="../assets/style.css?v=9b61b899">
+  <link rel="stylesheet" href="../assets/style.css?v=9d52f7d6">
   <style>
     .grid { --cols: 4; display: grid; grid-template-columns: repeat(var(--cols), 1fr); gap: 8px; width: min(100%, 520px); margin: 0 auto; }
     .card {
@@ -68,7 +68,7 @@
   var LEVELS = { '4x3': { cols: 4, rows: 3, name: '쉬움' }, '4x4': { cols: 4, rows: 4, name: '보통' }, '6x4': { cols: 6, rows: 4, name: '어려움' } };
   var gridEl = document.getElementById('grid'), movesEl = document.getElementById('moves'), timeEl = document.getElementById('time'), bestEl = document.getElementById('best');
   var key = MG.store.get('memory.level', '4x4'); if (!LEVELS[key]) key = '4x4';
-  var deck, els, first, busy, moves, matched, started;
+  var deck, els, first, busy, moves, matched, started, pendingTimer = null;
   var timer = MG.Timer(function (s) { timeEl.textContent = MG.fmtTime(s); });
 
   function layoutCols() {
@@ -82,6 +82,7 @@
   }
 
   function newGame() {
+    clearTimeout(pendingTimer); pendingTimer = null;
     var L = LEVELS[key], pairs = L.cols * L.rows / 2;
     var pick = MG.shuffle(EMOJI.slice()).slice(0, pairs);
     deck = MG.shuffle(pick.concat(pick));
@@ -107,11 +108,11 @@
     if (deck[a] === deck[b]) {
       [a, b].forEach(function (k) { els[k].classList.remove('up'); els[k].classList.add('matched'); els[k].disabled = true; });
       matched += 2;
-      if (matched === deck.length) setTimeout(win, 600);
+      if (matched === deck.length) { timer.stop(); busy = true; pendingTimer = setTimeout(win, 600); }
     } else {
       busy = true;
       els[a].classList.add('bad'); els[b].classList.add('bad');
-      setTimeout(function () {
+      pendingTimer = setTimeout(function () {
         [a, b].forEach(function (k) { els[k].classList.remove('up', 'bad'); });
         busy = false;
       }, 800);
@@ -119,6 +120,7 @@
   }
 
   function win() {
+    if (!started || matched !== deck.length || moves < deck.length / 2) return;
     timer.stop();
     var secs = Math.floor(timer.seconds), prev = MG.store.get('memory.best.' + key, null), extra = '';
     if (!prev || moves < prev.moves || (moves === prev.moves && secs < prev.secs)) {

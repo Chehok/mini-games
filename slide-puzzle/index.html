@@ -7,7 +7,7 @@
   <title>슬라이드 퍼즐 · Mini Games</title>
   <meta name="description" content="타일을 밀어 숫자를 순서대로 맞추는 슬라이드 퍼즐. 3x3, 4x4, 5x5 크기를 항상 풀 수 있게 섞어 드려요.">
   <meta name="color-scheme" content="light dark">
-  <link rel="stylesheet" href="../assets/style.css?v=9b61b899">
+  <link rel="stylesheet" href="../assets/style.css?v=9d52f7d6">
   <style>
     .wrap { container-type: inline-size; width: min(100%, 440px); margin: 0 auto; }
     .board {
@@ -61,7 +61,7 @@
   var boardEl = document.getElementById('board'), inner = document.getElementById('inner');
   var movesEl = document.getElementById('moves'), timeEl = document.getElementById('time'), bestEl = document.getElementById('best');
   var n = +MG.store.get('slide.n', 4); if ([3, 4, 5].indexOf(n) < 0) n = 4;
-  var board, tileEls, moves, over, started;   // board[pos] = tile number (0 = blank)
+  var board, tileEls, moves, over, started, winTimer = null;   // board[pos] = tile number (0 = blank)
   var timer = MG.Timer(function (s) { timeEl.textContent = MG.fmtTime(s); });
 
   function inversions(arr) {
@@ -118,6 +118,7 @@
   }
 
   function newGame() {
+    clearTimeout(winTimer); winTimer = null;
     board = shuffled(n); moves = 0; over = false; started = false;
     timer.reset(); movesEl.textContent = 0; build(); place(); showBest();
   }
@@ -149,7 +150,7 @@
       var secs = Math.floor(timer.seconds), prev = MG.store.get('slide.best.' + n, null), extra = '';
       if (!prev || moves < prev.moves) { MG.store.set('slide.best.' + n, { moves: moves, secs: secs }); extra = prev ? '\n🏆 새 기록!' : ''; }
       showBest();
-      setTimeout(function () {
+      winTimer = setTimeout(function () {
         MG.dialog({
           title: '🎉 완성!', text: n + '×' + n + ' · 이동 ' + moves + '번 · ' + MG.fmtTime(secs) + extra,
           buttons: [{ label: '다시 하기', primary: true, onClick: newGame }, { label: '닫기' }]

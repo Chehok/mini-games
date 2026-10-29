@@ -7,7 +7,7 @@
   <title>라이어 게임 · Mini Games</title>
   <meta name="description" content="한 명만 주제어를 모르는 라이어! 휴대폰을 돌려 보며 대화로 라이어를 찾아내는 파티 게임. 성경 주제도 있어요.">
   <meta name="color-scheme" content="light dark">
-  <link rel="stylesheet" href="../assets/style.css?v=9b61b899">
+  <link rel="stylesheet" href="../assets/style.css?v=9d52f7d6">
   <style>
     .secret {
       min-height: 220px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
@@ -153,14 +153,22 @@
       '<p class="tr-note">' + (tie ? '동점이면 더 토론하고 다시 투표하거나,\n지목된 사람 중에서 한 명을 정해 공개해도 좋아요.' : '이 사람이 라이어가 맞을까요?') + '</p>' +
       '<button class="btn primary big wide" id="rev" type="button">🤥 라이어 공개!</button>' +
       (tie ? '<button class="btn wide" id="again" type="button" style="margin-top:8px">다시 토론/투표</button>' : '') + '</div></div>';
-    $('#rev').onclick = function () { renderReveal(tops); };
-    if (tie) $('#again').onclick = renderTalk;
+    if (tie) {
+      $('#rev').remove();
+      tops.forEach(function (i) {
+        var b = document.createElement('button'); b.className = 'btn wide'; b.type = 'button';
+        b.textContent = pname(i) + ' 님으로 최종 지목';
+        b.onclick = function () { renderReveal([i]); };
+        root.querySelector('.panel').appendChild(b);
+      });
+    } else $('#rev').onclick = function () { renderReveal(tops); };
+    if (tie) $('#again').onclick = function () { G.votes = []; renderTalk(); };
   }
   function renderReveal(tops) {
     var caught = tops.length === 1 && tops[0] === G.liar;
     root.innerHTML = '<div class="tr-screen"><div class="panel center"><div class="tr-emoji" style="margin:0">🤥</div>' +
       '<div class="muted">라이어는…</div><div class="pname" style="font-size:2.2rem;color:var(--bad)">' + esc(pname(G.liar)) + '</div>' +
-      '<p class="tr-note" style="margin:6px 0">주제: ' + esc(G.cat) + '<br>진짜 주제어: <b>' + esc(G.word) + '</b>' + (S.variant ? '<br>라이어가 받은 단어: <b>' + esc(G.alt) + '</b>' : '') + '</p>' +
+      '<p class="tr-note" style="margin:6px 0">주제: ' + esc(G.cat) + (caught ? '<br>진짜 주제어는 마지막 추측이 끝난 뒤 공개해요.' : '<br>진짜 주제어: <b>' + esc(G.word) + '</b>' + (S.variant ? '<br>라이어가 받은 단어: <b>' + esc(G.alt) + '</b>' : '')) + '</p>' +
       (caught ? '<div class="verdict" style="color:var(--good)">라이어를 찾았어요! 🎉</div><p class="tr-note">마지막 기회! 라이어가 진짜 주제어를 맞히면 라이어의 역전승이에요.<br>라이어는 정답을 한 번 말해 보세요.</p>' +
         '<div class="row center"><button class="btn good big" id="hit" type="button">⭕ 맞혔다</button><button class="btn big" id="miss" type="button">❌ 틀렸다</button></div>'
         : '<div class="verdict" style="color:var(--bad)">라이어를 놓쳤어요! 😈</div><p class="tr-note">라이어의 승리!</p><button class="btn primary big wide" id="end" type="button">결과 보기</button>') + '</div></div>';
@@ -171,7 +179,7 @@
   }
   function renderEnd(winner, msg) {
     MG.wake.off(); MG.beep(winner === 'liar' ? 520 : 880, 200);
-    root.innerHTML = '<div class="tr-screen"><div class="panel center"><div class="tr-emoji">' + (winner === 'liar' ? '🤥' : '🎉') + '</div><div class="verdict">' + esc(msg) + '</div>' +
+    root.innerHTML = '<div class="tr-screen"><div class="panel center"><div class="tr-emoji">' + (winner === 'liar' ? '🤥' : '🎉') + '</div><div class="verdict">' + esc(msg) + '</div><p class="tr-note">진짜 주제어: <b>' + esc(G.word) + '</b>' + (S.variant ? '<br>라이어가 받은 단어: <b>' + esc(G.alt) + '</b>' : '') + '</p>' +
       '<div class="row center" style="margin-top:12px"><button class="btn primary big" id="again" type="button">다시 하기</button><button class="btn big" id="setup" type="button">설정으로</button></div></div></div>';
     $('#again').onclick = deal; $('#setup').onclick = renderSetup;
   }

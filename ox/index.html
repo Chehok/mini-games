@@ -7,7 +7,7 @@
   <title>OX 퀴즈 · Mini Games</title>
   <meta name="description" content="큰 화면으로 함께 즐기는 OX 퀴즈. 성경, 일반 상식, 과학, 한국 문화·역사 문제와 해설이 있어요.">
   <meta name="color-scheme" content="light dark">
-  <link rel="stylesheet" href="../assets/style.css?v=9b61b899">
+  <link rel="stylesheet" href="../assets/style.css?v=9d52f7d6">
   <style>
     main.game.wide { max-width: 860px; }
     .ox-q {
@@ -42,7 +42,7 @@
   <main class="game" id="app"></main>
 
 <script src="../assets/common.js?v=adb7274d"></script>
-<script src="questions.js?v=4253df63"></script>
+<script src="questions.js?v=bbd376e4"></script>
 <script>
 (function () {
   'use strict';
@@ -91,7 +91,7 @@
       '<div class="row center"><button class="btn primary big" id="rev" type="button">정답 공개 👀</button><button class="btn big" id="nx" type="button">다음 문제 ▶</button><button class="btn big" id="stop" type="button">그만하기</button></div>' +
       '<p class="hint">단축키: 스페이스/Enter = 정답 공개 → 다음 문제</p>';
     $('#rev').onclick = reveal; $('#nx').onclick = next; $('#stop').onclick = renderSetup;
-    $('#fs').onclick = function () { try { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen(); } catch (e) { MG.toast('전체 화면을 지원하지 않아요'); } };
+    $('#fs').onclick = function () { try { var p = document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); if (p && p.catch) p.catch(function () { MG.toast('전체 화면을 지원하지 않아요'); }); } catch (e) { MG.toast('전체 화면을 지원하지 않아요'); } };
     $('#nx').hidden = true;
     if (S.secs) {
       deadline = Date.now() + S.secs * 1000;

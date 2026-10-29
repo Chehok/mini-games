@@ -7,7 +7,7 @@
   <title>2048 · Mini Games</title>
   <meta name="description" content="방향키나 스와이프로 같은 숫자를 합쳐 2048 타일을 만드는 퍼즐 게임. 최고 점수와 되돌리기를 지원해요.">
   <meta name="color-scheme" content="light dark">
-  <link rel="stylesheet" href="../assets/style.css?v=9b61b899">
+  <link rel="stylesheet" href="../assets/style.css?v=9d52f7d6">
   <style>
     .wrap { container-type: inline-size; width: min(100%, 440px); margin: 0 auto; }
     .board {
@@ -72,7 +72,7 @@
   var N = 4, inner = document.getElementById('inner'), boardEl = document.getElementById('board');
   var scoreEl = document.getElementById('score'), bestEl = document.getElementById('best'), undoBtn = document.getElementById('undoBtn');
   var tiles = [], nextId = 1, score = 0, best = MG.store.get('2048.best', 0);
-  var snapshot = null, over = false, won = false, keepGoing = false, lock = false, pending = null;
+  var snapshot = null, over = false, won = false, keepGoing = false, lock = false, pending = null, moveTimer = null;
   bestEl.textContent = best;
 
   for (var r = 0; r < N; r++) for (var c = 0; c < N; c++) {
@@ -124,6 +124,7 @@
   function clearBoard() { tiles.forEach(function (t) { t.el.remove(); }); tiles = []; }
 
   function newGame() {
+    clearTimeout(moveTimer); moveTimer = null; tracking = false;
     clearBoard(); setScore(0); snapshot = null; over = false; won = false; keepGoing = false; lock = false; pending = null;
     undoBtn.disabled = true;
     spawn(); spawn();
@@ -172,7 +173,7 @@
     if (lock) { pending = dir; return; }
     var snap = { vals: values(), score: score };
     var res = computeMove(tiles, dir);
-    if (!res.moved) return;
+    if (!res.moved) { afterMove(); return; }
     snapshot = snap; undoBtn.disabled = false;
     tiles.forEach(place);
     var gone = [];
@@ -182,7 +183,8 @@
     });
     setScore(score + res.gained);
     lock = true;
-    setTimeout(function () {
+    moveTimer = setTimeout(function () {
+      moveTimer = null;
       res.merges.forEach(function (m) {
         m.t.el.remove(); m.other.el.remove();
         tiles = tiles.filter(function (t) { return t !== m.t && t !== m.other; });
@@ -202,7 +204,7 @@
       keepGoing = true;
       MG.dialog({
         title: '🎉 2048 달성!', text: '점수 ' + score + '점. 계속 도전해 볼까요?',
-        buttons: [{ label: '계속하기', primary: true }, { label: '새 게임', onClick: newGame }]
+        buttons: [{ label: '계속하기', primary: true, onClick: afterMove }, { label: '새 게임', onClick: newGame }]
       });
       return;
     }
@@ -246,6 +248,7 @@
   document.getElementById('newBtn').addEventListener('click', newGame);
 
   window.Game2048 = { computeMove: computeMove, getValues: values, setValues: function (v) {
+    clearTimeout(moveTimer); moveTimer = null; lock = false; pending = null;
     clearBoard(); v.forEach(function (row, r) { row.forEach(function (x, c) { if (x) tiles.push(makeTile(x, r, c, '')); }); });
   }, move: move };
   newGame();

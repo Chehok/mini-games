@@ -7,7 +7,7 @@
   <title>진행 도구 · Mini Games</title>
   <meta name="description" content="모임 진행 도구: 팀을 한 팀씩 공개하고, 사다리는 도착할 때 결과를 열고, 룰렛·슬롯으로 순서와 뽑기를 정해요.">
   <meta name="color-scheme" content="light dark">
-  <link rel="stylesheet" href="../assets/style.css?v=9b61b899">
+  <link rel="stylesheet" href="../assets/style.css?v=9d52f7d6">
   <style>
     main.tools-page { max-width: 1040px; }
     .tabs { display: flex; justify-content: center; margin-bottom: 14px; max-width: 100%; }
@@ -302,7 +302,7 @@
   </main>
 
 <script src="../assets/common.js?v=adb7274d"></script>
-<script src="logic.js?v=fb7e2e03"></script>
+<script src="logic.js?v=5f69812d"></script>
 <script>
 (function () {
   'use strict';
@@ -1276,15 +1276,18 @@
     var id = stopMotion();
     var k = Math.min(kn, pool.length);
     var res = MG.shuffle(pool.slice()).slice(0, k);
-    if ($('#kExclude').checked) picked = picked.concat(res);
-    else picked = [];
-    lastPick = res.slice();
+    var exclude = $('#kExclude').checked;
+    if (!exclude) picked = [];
+    lastPick = [];
     $('#pickRes').innerHTML = '';
     $('#copyPick').hidden = true;
     $('#pick').disabled = true;
     $('#pick').textContent = '뽑는 중…';
     var i = 0;
     function add(name) {
+      lastPick.push(name);
+      if (exclude && picked.indexOf(name) < 0) picked.push(name);
+      updatePickInfo();
       $('#pickRes').insertAdjacentHTML('beforeend', '<span class="pick">' + esc(name) + '</span>');
       $('#pickLive').textContent = name + ' 뽑혔어요.';
     }
