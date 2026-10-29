@@ -7,7 +7,7 @@
   <title>텔레파시 게임 · Mini Games</title>
   <meta name="description" content="같은 주제에서 같은 답을 쓰면 성공! 모두 종이에 답을 적고 동시에 공개하는 텔레파시 게임. 성경 주제도 있어요.">
   <meta name="color-scheme" content="light dark">
-  <link rel="stylesheet" href="../assets/style.css?v=9b61b899">
+  <link rel="stylesheet" href="../assets/style.css?v=9d52f7d6">
   <style>
     .tp-card { background: var(--surface); border: 3px solid var(--accent); border-radius: 24px; padding: 30px 14px; margin: 12px 0; min-height: 190px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 10px; text-align: center; box-shadow: var(--shadow); }
     .tp-card .cat { font-size: .85rem; font-weight: 700; color: var(--muted); }
@@ -115,7 +115,8 @@
     var h = '<div class="panel center"><div class="tr-emoji">🔮</div><h2 style="margin:0 0 6px">수고하셨어요!</h2><p class="tr-note" style="margin:0 0 8px">' + (round) + '개의 주제를 해봤어요.</p>';
     if (S.track) {
       var order = Array.apply(null, Array(S.n)).map(function (_, i) { return { i: i, s: scoreOf(i) }; }).sort(function (a, b) { return b.s - a.s; });
-      h += '<div class="scoreboard">' + order.map(function (o, ix) { return '<div class="srow' + (ix === 0 && o.s > 0 ? ' first' : '') + '"><span>' + (['🥇', '🥈', '🥉'][ix] || '') + '</span><span class="name">' + esc(pname(o.i)) + '</span><span class="pts">' + o.s + '</span></div>'; }).join('') + '</div>';
+      var rank = 0, prev = null;
+      h += '<div class="scoreboard">' + order.map(function (o, ix) { if (o.s !== prev) rank = ix; prev = o.s; return '<div class="srow' + (rank === 0 && o.s > 0 ? ' first' : '') + '"><span>' + (['🥇', '🥈', '🥉'][rank] || (rank + 1) + '위') + '</span><span class="name">' + esc(pname(o.i)) + '</span><span class="pts">' + o.s + '</span></div>'; }).join('') + '</div>';
     }
     h += '<div class="row center" style="margin-top:12px"><button class="btn primary big" id="again" type="button">다시 하기</button><button class="btn big" id="setup" type="button">설정으로</button></div></div>';
     root.innerHTML = h;

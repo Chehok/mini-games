@@ -122,7 +122,7 @@
         '<div class="muted" style="font-weight:700">' + round + '라운드 / ' + S.rounds + ' · ' + (session.t + 1) + '/' + session.total + '번째 턴</div>' +
         '<div class="tr-emoji">' + cfg.emoji + '</div>' +
         '<div class="tr-turn" style="font-size:1.6rem">' + dot(ti) + esc(teamName(ti)) + ' 차례!</div>' +
-        '<p class="tr-note">' + esc(cfg.readyNote) + '</p>' +
+        '<p class="tr-note">' + esc(cfg.readyNote + (cfg.mode === 'taboo' ? '' : coverEnabled() ? '\n단어는 2초 뒤에 가려져요. 카드를 누르면 다시 보여요.' : '\n단어를 계속 보여 드려요.')) + '</p>' +
         '<button class="btn primary big wide" id="goBtn" type="button">준비됐어요! 시작 ▶</button></div>' +
         '<div class="panel"><h2>점수</h2>' + scoreboardHtml(ti) + '</div>' +
         '<div class="toolbar"><button class="btn small" id="quitBtn" type="button">게임 그만하기</button></div></div>';
@@ -193,7 +193,8 @@
       $('#turnPts').textContent = turnPoints() + '점';
     }
     function mark(kind) {
-      if (turn.over) return;
+      if (!turn || turn.over) return;
+      if (Date.now() >= turn.deadline) { endTurn(true); return; }
       if (kind === 'pass') { if (turn.passLeft <= 0) return; if (turn.passLeft !== Infinity) turn.passLeft--; }
       turn.entries.push({ w: turn.cur.w, c: turn.cur.c, kind: kind });
       if (kind === 'ok') MG.vibrate(30);
@@ -224,7 +225,7 @@
       var h = '<div class="tr-screen"><div class="panel center" style="border:3px solid ' + COLORS[ti] + '"><div class="tr-turn">' + dot(ti) + esc(teamName(ti)) + ' 턴 결과</div>' +
         '<div class="bigscore" id="sumPts" style="font-size:2.6rem;font-weight:900;color:var(--accent)"></div>' +
         '<p class="muted" id="sumSub" style="margin:0 0 6px"></p><ul class="tr-list" id="sumList"></ul>' +
-        '<p class="hint" style="margin:4px 0 10px">실수가 있었다면 단어 옆 버튼으로 정답/패스를 바꿀 수 있어요.</p>' +
+        '<p class="hint" style="margin:4px 0 10px">실수가 있었다면 단어 옆 버튼으로 판정' + (cfg.mode === 'taboo' ? '과 금지어 감점' : '') + '을 바꿀 수 있어요.</p>' +
         '<button class="btn primary big wide" id="nextBtn" type="button"></button></div>' +
         '<div class="panel"><h2>점수 (이번 턴 반영 전)</h2>' + scoreboardHtml(-1) + '</div></div>';
       root.innerHTML = h;
@@ -244,11 +245,13 @@
         var li = document.createElement('li'); li.className = e.kind === 'ok' ? 'ok' : e.kind === 'foul' ? 'bad' : '';
         li.innerHTML = '<span>' + (e.kind === 'ok' ? '⭕' : e.kind === 'foul' ? '🚫' : '⏭') + '</span><span></span>';
         li.children[1].textContent = e.w;
-        if (e.kind !== 'foul') {
-          var b = document.createElement('button'); b.type = 'button'; b.className = 'btn small'; b.textContent = e.kind === 'ok' ? '패스로' : '정답으로';
-          b.onclick = function () { e.kind = e.kind === 'ok' ? 'pass' : 'ok'; drawSummary(); };
+        (cfg.mode === 'taboo' ? ['ok', 'pass', 'foul'] : ['ok', 'pass']).forEach(function (kind) {
+          if (kind === e.kind) return;
+          var b = document.createElement('button'); b.type = 'button'; b.className = 'btn small';
+          b.textContent = kind === 'ok' ? '정답으로' : kind === 'pass' ? '패스로' : '감점으로';
+          b.onclick = function () { e.kind = kind; drawSummary(); };
           li.appendChild(b);
-        }
+        });
         ul.appendChild(li);
       });
       if (!turn.entries.length) ul.innerHTML = '<li>기록이 없어요</li>';

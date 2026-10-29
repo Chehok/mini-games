@@ -32,7 +32,7 @@
   // 이름/태그: 태그 안에서는 섞고, 팀에는 한 명씩 돌아가며 넣어 인원·태그가 고르다.
   L.splitTeams = function (list, n, rnd) {
     rnd = rnd || Math.random;
-    var groups = {}, order = [], i;
+    var groups = Object.create(null), order = [], i;
     for (i = 0; i < list.length; i++) {
       var parts = String(list[i]).split('/');
       var name = parts[0].trim();
@@ -76,100 +76,41 @@
     return ends;
   };
 
-  function rungsValid(rungs, n) {
-    for (var l = 0; l < rungs.length; l++) {
-      if (rungs[l].length !== n - 1) return false;
-      for (var c = 0; c < n - 2; c++) {
-        if (rungs[l][c] && rungs[l][c + 1]) return false;
-      }
-    }
-    return true;
-  }
-
-  function isPerm(ends) {
-    var seen = {};
-    for (var i = 0; i < ends.length; i++) {
-      if (ends[i] < 0 || ends[i] >= ends.length || seen[ends[i]]) return false;
-      seen[ends[i]] = 1;
-    }
-    return true;
-  }
-
-  function isIdentity(ends) {
-    for (var i = 0; i < ends.length; i++) if (ends[i] !== i) return false;
-    return true;
-  }
-
-  function randomRungs(n, levels, rnd) {
-    var rungs = [], l, c, row;
-    for (l = 0; l < levels; l++) {
-      row = [];
-      for (c = 0; c < n - 1; c++) {
-        var blocked = c > 0 && row[c - 1];
-        row.push(!blocked && rnd() < 0.5);
-      }
-      rungs.push(row);
-    }
-    for (var pass = 0; pass < 6; pass++) {
-      var all = true;
-      for (c = 0; c < n - 1; c++) {
-        var has = false;
-        for (l = 0; l < levels; l++) if (rungs[l][c]) has = true;
-        if (has) continue;
-        all = false;
-        var opts = [];
-        for (l = 0; l < levels; l++) {
-          var left = c > 0 && rungs[l][c - 1];
-          var right = c + 1 < n - 1 && rungs[l][c + 1];
-          if (!left && !right) opts.push(l);
-        }
-        if (opts.length) {
-          rungs[opts[Math.floor(rnd() * opts.length)]][c] = true;
-        } else {
-          l = Math.floor(rnd() * levels);
-          if (c > 0) rungs[l][c - 1] = false;
-          if (c + 1 < n - 1) rungs[l][c + 1] = false;
-          rungs[l][c] = true;
-        }
-      }
-      if (all) break;
-    }
-    return rungs;
-  }
-
-  function fallbackRungs(n, levels) {
-    var rungs = [], l, c;
-    for (l = 0; l < levels; l++) {
-      var row = [];
-      for (c = 0; c < n - 1; c++) row.push(false);
-      rungs.push(row);
-    }
-    for (c = 0; c < n - 1; c++) {
-      l = (c % 2 === 0) ? 0 : Math.min(1, levels - 1);
-      rungs[l][c] = true;
-    }
-    return rungs;
-  }
-
+  // Fisher–Yates chooses every result permutation equally; adjacent swaps draw that result.
   L.buildLadder = function (n, rnd) {
     rnd = rnd || Math.random;
     n = Math.max(2, n | 0);
-    var levels = n <= 4 ? 11 : n <= 7 ? 12 : 10;
-    var rungs = null, ends = null;
-    for (var attempt = 0; attempt < 24; attempt++) {
-      var candidate = randomRungs(n, levels, rnd);
-      if (!rungsValid(candidate, n)) continue;
-      var e = L.traceAll(candidate, n, levels);
-      if (!isPerm(e)) continue;
-      rungs = candidate;
-      ends = e;
-      if (!isIdentity(e)) break;
+    var target = [], positions = [], rungs = [], levels = Math.max(11, n);
+    for (var i = 0; i < n; i++) { target.push(i); positions.push(i); }
+    shuffle(target, rnd);
+    for (var l = 0; l < levels; l++) {
+      var row = new Array(n - 1).fill(false);
+      for (var c = l % 2; c < n - 1; c += 2) {
+        if (target[positions[c]] > target[positions[c + 1]]) {
+          row[c] = true;
+          var t = positions[c]; positions[c] = positions[c + 1]; positions[c + 1] = t;
+        }
+      }
+      rungs.push(row);
     }
-    if (!rungs || !isPerm(ends) || isIdentity(ends)) {
-      rungs = fallbackRungs(n, levels);
-      ends = L.traceAll(rungs, n, levels);
+    // Add cancelling rung pairs below the permutation. With no neighboring
+    // column rung between a pair, every path in that column returns unchanged.
+    var counts = new Array(n - 1).fill(0);
+    rungs.forEach(function (row) {
+      row.forEach(function (present, c) { if (present) counts[c]++; });
+    });
+    var extra = [];
+    for (var c = 0; c < n - 1; c++) {
+      while (counts[c] < 2) {
+        var pair = new Array(n - 1).fill(false);
+        pair[c] = true;
+        extra.push(pair, pair.slice());
+        counts[c] += 2;
+      }
     }
-    return { levels: levels, rungs: rungs, ends: ends };
+    rungs = rungs.concat(extra);
+    levels = rungs.length;
+    return { levels: levels, rungs: rungs, ends: L.traceAll(rungs, n, levels) };
   };
 
   function mod(a, m) {

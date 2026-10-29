@@ -7,7 +7,7 @@
   <title>워들 · Mini Games</title>
   <meta name="description" content="영어 5글자 단어를 6번 안에 맞히는 워들. 매일 바뀌는 오늘의 단어와 무한 모드, 통계와 결과 공유를 지원해요.">
   <meta name="color-scheme" content="light dark">
-  <link rel="stylesheet" href="../assets/style.css?v=9b61b899">
+  <link rel="stylesheet" href="../assets/style.css?v=9d52f7d6">
   <style>
     :root { --c-correct: #3aa45c; --c-present: #d4a017; --c-absent: #787c8a; --tile-border: #c5c9da; }
     @media (prefers-color-scheme: dark) { :root { --c-absent: #3b3f52; --tile-border: #414661; } }
@@ -71,7 +71,7 @@
   </main>
 
 <script src="../assets/common.js?v=adb7274d"></script>
-<script src="words.js?v=66cd1544"></script>
+<script src="words.js?v=8c340e23"></script>
 <script>
 (function () {
   'use strict';
@@ -112,7 +112,8 @@
 
   /* ---------- state ---------- */
   var mode = MG.store.get('wordle.mode', 'daily');
-  var answer, guesses, cur, over, won, busy, today;
+  var answer, guesses, cur, over, won, busy, today, timers = [];
+  function later(fn, ms) { timers.push(setTimeout(fn, ms)); }
 
   var tiles = [], rows = [];
   for (var r = 0; r < MAX; r++) {
@@ -161,6 +162,8 @@
   function saveDaily() { if (mode === 'daily') MG.store.set('wordle.daily', { date: today, guesses: guesses }); }
 
   function startGame() {
+    timers.forEach(clearTimeout); timers = [];
+    rows.forEach(function (row) { row.classList.remove('shake'); });
     today = seoulDate(); cur = ''; busy = false; guesses = []; over = false; won = false;
     document.querySelectorAll('#modes button').forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.mode === mode ? 'true' : 'false'); });
     if (mode === 'daily') {
@@ -183,6 +186,8 @@
   function getStats(m) { return Object.assign(emptyStats(), MG.store.get('wordle.stats.' + m, {})); }
   function recordResult(didWin, nGuesses) {
     var s = getStats(mode);
+    if (mode === 'daily' && s.lastPlayed === today) return;
+    if (mode === 'daily') s.lastPlayed = today;
     s.played++;
     if (didWin) {
       s.wins++; s.dist[nGuesses - 1]++;
@@ -211,24 +216,26 @@
     if (cur.length < LEN) return invalid('글자가 부족해요');
     if (!VALID.has(cur)) return invalid('단어 목록에 없어요');
     var g = cur, r = guesses.length, states = evaluate(g, answer);
-    guesses.push(g); cur = ''; busy = true; saveDaily();
+    guesses.push(g); cur = ''; busy = true;
+    won = g === answer; over = won || guesses.length >= MAX;
+    if (over) recordResult(won, guesses.length);
+    saveDaily();
     for (var c = 0; c < LEN; c++) (function (c) {
       var t = tileAt(r, c);
-      setTimeout(function () { t.classList.add('flip'); }, c * 250);
-      setTimeout(function () { t.classList.add(states[c]); }, c * 250 + 250);
+      later(function () { t.classList.add('flip'); }, c * 250);
+      later(function () { t.classList.add(states[c]); }, c * 250 + 250);
     })(c);
-    setTimeout(function () {
+    later(function () {
       busy = false; paintKeys();
       if (g === answer) {
         won = over = true;
-        for (var c = 0; c < LEN; c++) (function (c) { setTimeout(function () { tileAt(r, c).classList.add('win'); }, c * 80); })(c);
-        recordResult(true, guesses.length);
+        for (var c = 0; c < LEN; c++) (function (c) { later(function () { tileAt(r, c).classList.add('win'); }, c * 80); })(c);
         MG.toast(['대단해요! 🤩', '훌륭해요! 🎉', '멋져요! 👏', '잘했어요! 😄', '아슬아슬! 😅', '휴, 성공! 😮‍💨'][guesses.length - 1], 1800);
-        setTimeout(showResult, 1500);
+        later(showResult, 1500);
       } else if (guesses.length >= MAX) {
-        over = true; recordResult(false, 0);
+        over = true;
         MG.toast('정답은 ' + answer.toUpperCase(), 2500);
-        setTimeout(showResult, 1500);
+        later(showResult, 1500);
       }
     }, LEN * 250 + 300);
   }
