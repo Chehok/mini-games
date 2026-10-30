@@ -49,7 +49,7 @@ function cdp(method, params = {}) {
         canvas.width = canvas.height = ${size};
         const ctx = canvas.getContext('2d');
         // Full bleed background; inset the artwork inside the maskable safe circle.
-        if (${!!maskable}) { ctx.fillStyle = '#4655d5'; ctx.fillRect(0, 0, ${size}, ${size}); }
+        if (${!!maskable}) { ctx.fillStyle = '#4f46e5'; ctx.fillRect(0, 0, ${size}, ${size}); }
         const inset = ${maskable ? size * 0.1 : 0};
         ctx.drawImage(img, inset, inset, ${size} - inset * 2, ${size} - inset * 2);
         return canvas.toDataURL('image/png').split(',')[1];
