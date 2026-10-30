@@ -15,12 +15,12 @@
   <title>Mini Games</title>
   <meta name="description" content="스도쿠, 2048, 워들, 초성 퀴즈 같은 1인용 게임부터 몸으로 말해요, 라이어 게임, OX 퀴즈 같은 다인용 파티 게임과 진행 도구까지! 설치 없이 바로 즐기는 미니 게임 모음.">
   <meta name="color-scheme" content="light dark">
-  <link rel="stylesheet" href="assets/style.css?v=17c5fe1c">
+  <link rel="stylesheet" href="assets/style.css?v=fc901d82">
   <script>
   (function () {
-    var allowed = { solo: 1, party: 1, tools: 1 };
+    var allowed = { solo: 1, party: 1, tools: 1, ads: 1 };
     function fromHash() {
-      var m = /^#(solo|party|tools)\/?$/.exec((location.hash || '').toLowerCase());
+      var m = /^#(solo|party|tools|ads)\/?$/.exec((location.hash || '').toLowerCase());
       return m ? m[1] : '';
     }
     function fromStore() {
@@ -44,9 +44,10 @@
     </header>
     <div class="hub-switch">
       <div class="hub-modes" id="hub-tabs" role="tablist" aria-label="게임 종류">
-        <button type="button" class="hub-mode" role="tab" id="tab-solo" data-tab="solo" aria-controls="panel-solo" aria-selected="true" tabindex="0">😊 1인용</button>
-        <button type="button" class="hub-mode" role="tab" id="tab-party" data-tab="party" aria-controls="panel-party" aria-selected="false" tabindex="-1">👥 다인용</button>
-        <button type="button" class="hub-mode" role="tab" id="tab-tools" data-tab="tools" aria-controls="panel-tools" aria-selected="false" tabindex="-1">🧰 진행 도구</button>
+        <button type="button" class="hub-mode" role="tab" id="tab-solo" data-tab="solo" aria-controls="panel-solo" aria-selected="true" tabindex="0"><span class="tab-icon" aria-hidden="true">😊 </span>1인용</button>
+        <button type="button" class="hub-mode" role="tab" id="tab-party" data-tab="party" aria-controls="panel-party" aria-selected="false" tabindex="-1"><span class="tab-icon" aria-hidden="true">👥 </span>다인용</button>
+        <button type="button" class="hub-mode" role="tab" id="tab-tools" data-tab="tools" aria-controls="panel-tools" aria-selected="false" tabindex="-1"><span class="tab-icon" aria-hidden="true">🧰 </span>진행 도구</button>
+        <button type="button" class="hub-mode" role="tab" id="tab-ads" data-tab="ads" aria-controls="panel-ads" aria-selected="false" tabindex="-1" aria-label="광고에서 본 그 게임"><span class="tab-full">광고에서 본 그 게임</span><span class="tab-short" aria-hidden="true">광고 게임</span></button>
       </div>
     </div>
     <section class="hub-section" id="panel-solo" role="tabpanel" aria-labelledby="tab-solo" tabindex="0">
@@ -128,14 +129,24 @@
       </a>
       </nav>
     </section>
+    <section class="hub-section" id="panel-ads" role="tabpanel" aria-labelledby="tab-ads" tabindex="0">
+      <h2 class="section-title">광고에서 본 그 게임</h2>
+      <nav class="cards" aria-label="광고에서 본 그 게임 목록">
+        <a class="card" href="pin-pull/"><span class="emoji" aria-hidden="true">📍</span><div><h2>핀 뽑기</h2><p>핀을 뽑아 진흙을 비우고 반짝이는 보석을 컵에 모아요.</p></div></a>
+        <a class="card" href="water-sort/"><span class="emoji" aria-hidden="true">🧪</span><div><h2>물 분류</h2><p>같은 색과 기호의 물을 한 시험관에 모아요.</p></div></a>
+        <a class="card" href="screw-puzzle/"><span class="emoji" aria-hidden="true">🔩</span><div><h2>나사 풀기</h2><p>겹친 판의 나사를 같은 색 상자에 정리해요.</p></div></a>
+        <a class="card" href="parking-jam/"><span class="emoji" aria-hidden="true">🚗</span><div><h2>주차장 탈출</h2><p>앞길이 열린 차부터 주차장 밖으로 보내요.</p></div></a>
+        <a class="card" href="untangle/"><span class="emoji" aria-hidden="true">🪢</span><div><h2>꼬인 줄 풀기</h2><p>점을 옮겨 서로 교차하는 줄을 모두 풀어요.</p></div></a>
+      </nav>
+    </section>
     <footer>광고도 설치도 없는 미니 게임 모음</footer>
   </main>
   <script>
   (function () {
-    var TABS = ['solo', 'party', 'tools'];
+    var TABS = ['solo', 'party', 'tools', 'ads'];
     function allowed(t) { return TABS.indexOf(t) >= 0; }
     function fromHash() {
-      var m = /^#(solo|party|tools)\/?$/.exec((location.hash || '').toLowerCase());
+      var m = /^#(solo|party|tools|ads)\/?$/.exec((location.hash || '').toLowerCase());
       return m ? m[1] : '';
     }
     function fromStore() {

@@ -203,7 +203,7 @@ html[data-hub] .hub-switch { display: block; }
   display: flex;
   gap: 4px;
   width: 100%;
-  max-width: 440px;
+  max-width: 680px;
   margin: 0 auto;
   padding: 4px;
   background: var(--seg-bg);
@@ -230,7 +230,8 @@ html[data-hub] .hub-switch { display: block; }
 }
 html[data-hub="solo"] #tab-solo,
 html[data-hub="party"] #tab-party,
-html[data-hub="tools"] #tab-tools {
+html[data-hub="tools"] #tab-tools,
+html[data-hub="ads"] #tab-ads {
   background: var(--surface);
   color: var(--text);
   box-shadow: 0 1px 2px rgba(16,24,40,.08), 0 2px 8px rgba(16,24,40,.06);
@@ -238,7 +239,8 @@ html[data-hub="tools"] #tab-tools {
 html[data-hub]:not(.tabs-ready) .hub-section { display: none; }
 html[data-hub="solo"]:not(.tabs-ready) #panel-solo,
 html[data-hub="party"]:not(.tabs-ready) #panel-party,
-html[data-hub="tools"]:not(.tabs-ready) #panel-tools { display: block; }
+html[data-hub="tools"]:not(.tabs-ready) #panel-tools,
+html[data-hub="ads"]:not(.tabs-ready) #panel-ads { display: block; }
 html[data-hub] .hub-section { margin-top: 0; }
 html[data-hub] .hub-kicker {
   position: absolute;
@@ -391,4 +393,14 @@ details.panel > summary { min-height: 44px; padding-block: 10px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .btn:hover, .btn:active, .hub .card:hover { transform: none; }
+}
+
+/* Four hub tabs retain their full label on wider screens. */
+.tab-short { display: none; }
+#tab-ads { flex-grow: 1.8; }
+@media (max-width: 600px) {
+  .tab-full, .hub-mode .tab-icon { display: none; }
+  .tab-short { display: inline; }
+  #tab-ads { flex-grow: 1; }
+  .hub-mode { font-size: .8rem; }
 }
