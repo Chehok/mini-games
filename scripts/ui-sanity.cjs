@@ -59,10 +59,10 @@ function contrast(fg, bg) {
   const puzzlePages=['pin-pull','water-sort','screw-puzzle','parking-jam','untangle'];
   const pages=[...new Set(['', ...puzzlePages, ...fs.readdirSync(root).filter(d=>fs.existsSync(path.join(root,d,'index.html')))])];
   for (const width of [320,360,390,1280]) for (const theme of ['light','dark']) {
-    await cdp('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});
+    await cdp('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:width===390?2:1,mobile:false});
     await cdp('Emulation.setEmulatedMedia',{features:[{name:'prefers-color-scheme',value:theme}]});
     for (const page of pages) {
-      if (width===320 && page!=='wordle') continue;
+      if (width===320 && page!=='wordle' && !puzzlePages.includes(page)) continue;
       await loaded(base+(page?page+'/':''));
       if (width===360 && theme==='light') {
         assert.equal(await evaluate(`document.querySelector('meta[name="apple-mobile-web-app-title"]')?.content`), '\ubbf8\ub2c8\uac8c\uc784', page+': home screen title');
@@ -97,6 +97,14 @@ function contrast(fg, bg) {
       })()`);
       for(const pair of colors) assert(contrast(...pair)>=4.5, `${page} ${theme}: contrast ${pair} = ${contrast(...pair)}`);
       assert(await evaluate(`Array.from(document.querySelectorAll('button:not(.cell):not(.tile):not(.key)')).filter(e=>e.getClientRects().length).every(e=>{const r=e.getBoundingClientRect();return r.height>=44 && r.width>=44;})`), page+': control size');
+      if(puzzlePages.includes(page)) {
+        assert(await evaluate(`!!document.querySelector('.puzzle-settings select') && document.querySelector('.sound-toggle').getAttribute('aria-pressed')==='false' && document.querySelector('#status').getAttribute('aria-live')==='polite'`), page+': shared HUD, silent default and live status');
+        if(page==='pin-pull') assert(await evaluate(`document.querySelector('canvas').width >= document.querySelector('canvas').clientWidth * devicePixelRatio - 3`), 'pin canvas DPR');
+        if([320,390,1280].includes(width)) {
+          const png=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:true,clip:{x:0,y:0,width,height:await evaluate('document.documentElement.scrollHeight'),scale:1}});
+          fs.writeFileSync(path.join(profile,`${page}-${width}-${theme}.png`),Buffer.from(png.data,'base64'));
+        }
+      }
       if(page==='wordle') assert(await evaluate(`(() => {
         const rows=Array.from(document.querySelectorAll('#kb .krow'));
         const expected=[['q','w','e','r','t','y','u','i','o','p'],['a','s','d','f','g','h','j','k','l'],['Enter','z','x','c','v','b','n','m','⌫']];
@@ -129,6 +137,25 @@ function contrast(fg, bg) {
       }
     }
   }
+  // Dense late stages must fit too; initial-page coverage alone misses 12-tube layouts.
+  for(const width of [320,390,1280]) for(const theme of ['light','dark']) {
+    await cdp('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:2,mobile:false});
+    await cdp('Emulation.setEmulatedMedia',{features:[{name:'prefers-color-scheme',value:theme},{name:'prefers-reduced-motion',value:'reduce'}]});
+    for(const page of puzzlePages) {
+      await loaded(base+page+'/');
+      await evaluate(`MG.store.set('${page}.level',${page==='water-sort'?25:12})`);
+      await loaded(base+page+'/');
+      assert(await evaluate('document.documentElement.scrollWidth <= innerWidth'), `${page}: dense overflow at ${width} ${theme}`);
+      assert(await evaluate(`Array.from(document.querySelectorAll('#board button')).every(b=>{const r=b.getBoundingClientRect();return r.width>=44 && r.height>=44;})`), page+': dense touch targets');
+      if(page==='water-sort') assert.equal(await evaluate(`document.querySelectorAll('.tube').length`),12,'ten colors plus two empty tubes');
+      const png=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:true,clip:{x:0,y:0,width,height:await evaluate('document.documentElement.scrollHeight'),scale:1}});
+      fs.writeFileSync(path.join(profile,`${page}-dense-${width}-${theme}.png`),Buffer.from(png.data,'base64'));
+      await evaluate(`document.querySelector('.sound-toggle').click(); document.querySelector('#restart').click()`);
+      assert(await evaluate(`document.querySelector('#moves').textContent==='0' && document.querySelector('.sound-toggle').getAttribute('aria-pressed')==='true'`),page+': restart resets moves and retains in-session sound preference');
+      await evaluate(`MG.store.set('${page}.level',1)`);
+    }
+  }
+  await cdp('Emulation.setEmulatedMedia',{features:[{name:'prefers-color-scheme',value:'light'}]});
   await loaded(base+'wordle/');
   await evaluate('document.querySelector("#statsBtn").focus(); document.querySelector("#statsBtn").click()');
   assert(await evaluate('document.querySelector("[role=dialog]").contains(document.activeElement)'), 'dialog initial focus');
@@ -180,7 +207,7 @@ function contrast(fg, bg) {
   })`);
   assert(counts.parses<=1 && counts.measures===0 && counts.sizes===0, 'roulette frame cache: '+JSON.stringify(counts));
   assert.equal(errors.length,0,JSON.stringify(errors));
-  console.log(`PASS: ${pages.length} pages × 360/390/1280px × light/dark, Wordle keyboard layout/bounds at 320/360/390/1280px, contrast, controls, mines zoom, tabs, dialog focus/Tab/Escape, game labels, long names, roulette cache`);
+  console.log(`PASS: ${pages.length} pages × 360/390/1280px × light/dark, Wordle + all five puzzles at 320px, dense puzzle stages at 320/390/1280px and DPR 2, silent HUD/restart, contrast, controls, mines zoom, tabs, dialog focus/Tab/Escape, game labels, long names, roulette cache`);
   console.log('PASS: every page has resolving apple-touch-icon/favicon/manifest links under /mini-games/, including manifest icons and launch scope');
   console.log('Screenshots:',profile);
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(()=>{if(ws)ws.close();if(child)child.kill();server.close();});

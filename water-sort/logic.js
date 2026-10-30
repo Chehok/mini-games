@@ -13,7 +13,7 @@
   }
   function generate(level, random) {
     random = random || Math.random;
-    const colors = Math.min(6, 2 + Math.floor((level - 1) / 3));
+    const colors = Math.min(10, 2 + Math.floor((level - 1) / 3));
     let state = Array.from({length:colors}, (_,c) => Array(CAP).fill(c)).concat([[], []]);
     const solution = []; const seen = new Set([JSON.stringify(state)]);
     // A reverse step is accepted only when the real, maximal forward pour restores its parent.
@@ -33,6 +33,11 @@
       if (!candidates.length) break;
       const pick = candidates[Math.floor(random() * candidates.length)];
       state = pick.next; seen.add(pick.key); solution.unshift([pick.b, pick.a]);
+    }
+    // A rare shuffle may only permute whole tubes. Keep even that seed playable.
+    if(solved(state)) {
+      const a=state.findIndex(t=>t.length===CAP),b=state.findIndex(t=>!t.length);
+      state=state.map(t=>t.slice());state[b].push(state[a].pop());solution.unshift([b,a]);
     }
     return {tubes:state, solution, colors};
   }
