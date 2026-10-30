@@ -4,7 +4,7 @@ const vm = require('vm');
 const assert = require('assert/strict');
 function read(p) { return fs.readFileSync(p, 'utf8'); }
 function inline(p) { return [...read(p).matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].map(m=>m[1]).filter(Boolean).join('\n'); }
-for (const dir of ['sudoku','minesweeper','2048','memory','slide-puzzle','wordle','chosung','liar','tools','ox','telepathy','charades','speed','taboo']) {
+for (const dir of ['sudoku','minesweeper','2048','memory','slide-puzzle','wordle','chosung','liar','tools','ox','telepathy','charades','speed','taboo','pin-pull','water-sort','screw-puzzle','parking-jam','untangle']) {
   new vm.Script(inline(dir+'/index.html'), {filename: dir+'/index.html'});
 }
 for (const p of ['assets/common.js','assets/teamround.js','tools/logic.js','charades/words.js','speed/words.js','chosung/words.js','ox/questions.js','taboo/words.js','wordle/words.js']) new vm.Script(read(p), {filename:p});
@@ -134,3 +134,77 @@ console.log('PASS: liar tie selection and secret until final guess; all three te
 }
 console.log('PASS: interrupted exclusion draw excludes and copies only revealed winners');
 
+
+// Ad puzzles: exercise the exact pure logic files loaded by the browser controllers.
+for (const dir of ['pin-pull','water-sort','screw-puzzle','parking-jam','untangle']) {
+  for (const file of ['logic.js','game.js']) new vm.Script(read(dir+'/'+file),{filename:dir+'/'+file});
+  vm.runInNewContext(read(dir+'/logic.js'),ctx);
+}
+for (const file of ['assets/ad-puzzles.js']) new vm.Script(read(file),{filename:file});
+const W=ctx.window.WaterLogic, Park=ctx.window.ParkingLogic, Screw=ctx.window.ScrewLogic, U=ctx.window.UntangleLogic, Pin=ctx.window.PinLogic;
+function bfs(start, key, goal, neighbors, limit=200000) {
+  const queue=[start],seen=new Set([key(start)]);
+  for(let head=0;head<queue.length;head++) {
+    const s=queue[head];if(goal(s))return true;
+    for(const next of neighbors(s)) {
+      const k=key(next);if(seen.has(k))continue;seen.add(k);queue.push(next);
+      assert(queue.length<=limit,'BFS exceeded state limit');
+    }
+  }
+  return false;
+}
+const waterKey=t=>t.map(a=>a.join('')).sort().join('|');
+for(let sample=0;sample<24;sample++) {
+  const {tubes}=W.generate(1,rnd);
+  assert(!W.solved(tubes),'water starts unsolved');
+  assert(bfs(tubes,waterKey,W.solved,s=>{
+    const next=[];for(let a=0;a<s.length;a++)for(let b=0;b<s.length;b++){const t=W.pour(s,a,b);if(t)next.push(t);}return next;
+  }), 'water small level BFS solvable');
+}
+for(let level=1;level<=40;level++)for(let sample=0;sample<8;sample++) {
+  const generated=W.generate(level,rnd);let state=generated.tubes;
+  assert(!W.solved(state),'water generated puzzle must be mixed');
+  assert.equal(state.flat().length,generated.colors*4);
+  for(let c=0;c<generated.colors;c++)assert.equal(state.flat().filter(v=>v===c).length,4);
+  for(const [a,b] of generated.solution){state=W.pour(state,a,b);assert(state,'reverse-shuffle witness must be a legal maximal pour');}
+  assert(W.solved(state),'reverse-shuffle witness solves generated level');
+}
+assert.equal(W.pour([[0],[1],[],[]],0,1),null);
+assert.equal(W.pour([[0],[0,0,0,0]],0,1),null);
+for(let level=1;level<=Park.designs.length;level++) {
+  const cars=Park.level(level),occupied=new Set();
+  assert(cars.some((car,i)=>!Park.canExit(cars,i)),'parking starts with at least one blocked car');
+  for(const c of cars){assert(c.len>=2&&c.len<=3);for(const [x,y] of Park.cells(c)){assert(x>=0&&x<6&&y>=0&&y<6);const k=x+','+y;assert(!occupied.has(k),'parking overlap');occupied.add(k);}}
+  assert(bfs(cars,s=>s.map(c=>c?c.id:'.').join(''),s=>s.every(c=>!c),s=>{
+    const out=[];s.forEach((c,i)=>{if(c&&Park.canExit(s,i)){const n=s.slice();n[i]=null;out.push(n);}});return out;
+  }), 'parking '+level+' BFS solvable');
+}
+// Search all legal screw choices until a solution is found, with memoization.
+for(let level=1;level<=Screw.designs.length;level++) {
+  const data=Screw.level(level),visited=new Set();
+  function solve(state){
+    if(state.removed.every(n=>n===7))return true;
+    const key=JSON.stringify(state);if(visited.has(key))return false;visited.add(key);
+    for(let p=data.plates.length-1;p>=0;p--)for(let s=0;s<3;s++){
+      const next=Screw.remove(data,state,p,s);if(next&&solve(next))return true;
+    }return false;
+  }
+  assert(solve(Screw.initial(data)),'screw '+level+' solvable');
+}
+for(let level=1;level<=60;level++)for(let sample=0;sample<4;sample++) {
+  const data=U.generate(level,rnd);
+  assert(U.clear(data.solution,data.edges),'untangle solution is planar and separated');
+  assert(U.crossings(data.nodes,data.edges).length>0,'untangle starts crossed');
+  assert.equal(data.nodes.length,data.solution.length);
+  assert(data.edges.every(([a,b])=>a!==b&&a>=0&&b<data.nodes.length));
+}
+assert(U.intersects({x:0,y:0},{x:10,y:10},{x:0,y:10},{x:10,y:0}));
+assert(U.intersects({x:0,y:0},{x:10,y:0},{x:5,y:0},{x:15,y:0}),'collinear overlap counts');
+for(let level=1;level<=Pin.designs.length;level++) {
+  const data=Pin.level(level);
+  assert(data.edges.every(e=>data.nodes[e.from].y<data.nodes[e.to].y),'pin channels descend');
+  assert(bfs(Pin.initial(data),s=>JSON.stringify(s),Pin.solved,s=>{
+    const out=[];data.edges.forEach((_,i)=>{const n=Pin.pull(data,s,i);if(n&&!n.state.failed)out.push(n.state);});return out;
+  }), 'pin '+level+' solvable');
+}
+console.log('PASS: water small-case BFS + 320 reverse-shuffle solution witnesses; 12 parking BFS, 12 screw searches, 12 pin BFS; 240 planar untangle solutions');

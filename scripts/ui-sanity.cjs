@@ -56,7 +56,8 @@ function contrast(fg, bg) {
   });
   await cdp('Page.enable'); await cdp('Runtime.enable'); await cdp('Log.enable');
   const base='http://127.0.0.1:' + server.address().port + '/mini-games/';
-  const pages=['', ...fs.readdirSync(root).filter(d=>fs.existsSync(path.join(root,d,'index.html')))];
+  const puzzlePages=['pin-pull','water-sort','screw-puzzle','parking-jam','untangle'];
+  const pages=[...new Set(['', ...puzzlePages, ...fs.readdirSync(root).filter(d=>fs.existsSync(path.join(root,d,'index.html')))])];
   for (const width of [320,360,390,1280]) for (const theme of ['light','dark']) {
     await cdp('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});
     await cdp('Emulation.setEmulatedMedia',{features:[{name:'prefers-color-scheme',value:theme}]});
@@ -108,7 +109,7 @@ function contrast(fg, bg) {
         assert(await evaluate('document.querySelector(".m").getBoundingClientRect().width >= 32'), 'mines cell size');
         assert(await evaluate('document.documentElement.scrollWidth <= innerWidth'), 'mines overflow');
       }
-      if(!page) for(const tab of ['party','tools']) {
+      if(!page) for(const tab of ['party','tools','ads']) {
         await evaluate(`document.querySelector('#tab-${tab}').click()`);
         assert(await evaluate('document.documentElement.scrollWidth <= innerWidth'), 'hub tab overflow');
         const pair=await evaluate(`(()=>{const e=document.querySelector('[aria-selected="true"]');const s=getComputedStyle(e);return [s.color,s.backgroundColor];})()`);

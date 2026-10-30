@@ -1,0 +1,50 @@
+/* Puzzle surfaces inherit the shared light/dark tokens. */
+.ad-game .site-header { grid-template-columns: auto minmax(0, 1fr) 0; }
+.ad-game .site-header h1 { font-size: clamp(.98rem, 4vw, 1.15rem); white-space: normal; }
+.ad-game .game { max-width: 560px; }
+.puzzle-board { position: relative; width: 100%; border: 1px solid var(--border); border-radius: 22px; background: var(--surface); box-shadow: var(--shadow); padding: 12px; }
+.puzzle-status { min-height: 3em; text-align: center; font-weight: 700; color: var(--accent-ink); }
+.puzzle-board button { touch-action: manipulation; }
+.puzzle-board .selected { outline: 3px solid var(--focus); outline-offset: 2px; }
+.color-0 { --piece: #b83e51; }
+.color-1 { --piece: #216aab; }
+.color-2 { --piece: #267352; }
+.color-3 { --piece: #8650ad; }
+.color-4 { --piece: #966020; }
+.color-5 { --piece: #47606e; }
+/* Every color is paired with a permanent symbol and readable white ink. */
+.water-board { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px 10px; padding: 22px 10px; }
+.tube { position: relative; display: flex; flex-direction: column-reverse; justify-content: flex-start; height: 174px; padding: 4px; border: 3px solid var(--line-strong); border-top: 0; border-radius: 6px 6px 24px 24px; background: var(--surface-2); overflow: visible; }
+.tube .water { flex: 0 0 25%; width: 100%; background: var(--piece); color: #fff; display: grid; place-items: center; font-weight: 800; font-size: 1.15rem; border-bottom: 1px solid #ffffff70; }
+.tube .water:first-child { border-radius: 0 0 16px 16px; }
+.tube-number { position: absolute; top: -20px; left: 0; right: 0; font-size: .7rem; color: var(--muted); }
+.parking-board { aspect-ratio: 1; padding: 0; border: 8px solid var(--line-strong); background-color: var(--surface-2); background-image: linear-gradient(to right,var(--border) 1px,transparent 1px),linear-gradient(to bottom,var(--border) 1px,transparent 1px); background-size: 16.6667% 16.6667%; }
+.car { position: absolute; border: 2px solid var(--surface); border-radius: 12px; background: var(--piece); color: white; font-weight: 800; font-size: 1rem; padding: 0; transition: opacity .18s; }
+.screw-board { height: 440px; padding: 0; overflow: hidden; }
+.plate { position: absolute; background: var(--surface-2); border: 3px solid var(--line-strong); border-radius: 18px; box-shadow: 0 5px 0 var(--border); }
+.plate-label { position: absolute; left: 8px; top: 4px; font-size: .75rem; color: var(--muted); }
+.screw { position: absolute; border: 3px solid #ffffffaa; border-radius: 50%; background: var(--piece); color: #fff; width: 44px; height: 44px; padding: 0; font-weight: 800; }
+.screw:disabled { opacity: .7; cursor: not-allowed; }
+.boxes { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+.screw-box { padding: 8px 10px; background: var(--piece); color: #fff; border-radius: 12px; font-weight: 700; }
+@keyframes plate-drop { from { transform: translateY(0); opacity: 1; } to { transform: translateY(460px) rotate(12deg); opacity: 0; } }
+.plate.fallen { transform: translateY(460px) rotate(12deg); opacity: 0; animation: plate-drop .35s var(--ease) both; pointer-events: none; }
+.untangle-board { height: 420px; padding: 0; touch-action: none; }
+.graph-lines, .pin-lines { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.graph-lines line { stroke: var(--good); stroke-width: 3; }
+.graph-lines line.crossing { stroke: var(--bad); stroke-width: 5; stroke-dasharray: 7 4; }
+.graph-node { position: absolute; transform: translate(-50%,-50%); width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--accent); background: var(--surface); color: var(--accent-ink); font-weight: 800; padding: 0; touch-action: none; user-select: none; }
+.pin-board { height: 480px; padding: 0; overflow: hidden; }
+.pin-lines line { stroke: var(--line-strong); stroke-width: 14; stroke-linecap: round; }
+.pin-lines line.open { stroke: var(--accent-soft); }
+.chamber { position: absolute; transform: translate(-50%,-50%); width: 62px; min-height: 44px; padding: 4px; text-align: center; border-radius: 14px; border: 2px solid var(--line-strong); background: var(--surface-2); font-size: .8rem; }
+.pin { position: absolute; transform: translate(-50%,-50%); padding: 0 6px; min-width: 44px; height: 44px; border: 2px solid var(--accent); border-radius: 12px; background: var(--surface); color: var(--accent-ink); font-weight: 800; z-index: 2; }
+.pin:disabled { visibility: hidden; }
+.falling-star { position: absolute; transform: translate(-50%,-50%); z-index: 3; pointer-events: none; font-size: 20px; }
+@media (max-width: 380px) {
+  .ad-game .game { padding-left: 12px; padding-right: 12px; }
+  .water-board { gap: 18px 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .plate.fallen { transition: none; }
+}

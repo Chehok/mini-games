@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <link rel="icon" type="image/png" sizes="32x32" href="../assets/icons/favicon-32.png?v=2966e46c">
+  <link rel="icon" type="image/svg+xml" sizes="any" href="../assets/icons/icon.svg?v=ce2c3834">
+  <link rel="apple-touch-icon" sizes="180x180" href="../assets/icons/apple-touch-icon-180.png?v=8fe226b3">
+  <link rel="manifest" href="../manifest.webmanifest?v=bb8c639b">
+  <meta name="theme-color" content="#f4f5f9" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#14151f" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-title" content="미니게임">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>나사 풀기 · Mini Games</title>
+  <meta name="description" content="겹친 판의 나사를 같은 색 상자에 정리해요.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="stylesheet" href="../assets/style.css?v=fc901d82">
+  <link rel="stylesheet" href="../assets/ad-games.css?v=1fe9e37b">
+</head>
+<body data-game="screw-puzzle" class="ad-game">
+  <header class="site-header"><a class="back" href="../#ads">← 게임 목록</a><h1>🔩 나사 풀기</h1><span class="spacer"></span></header>
+  <main class="game">
+    <div class="statbar"><div class="stat"><span class="label">단계</span><span class="value" id="level">1</span></div><div class="stat"><span class="label">이동</span><span class="value" id="moves">0</span></div></div>
+    <p class="hint" id="instructions"></p>
+    <div id="board" class="puzzle-board" role="group" aria-label="나사 풀기 게임판"></div>
+    <p id="status" class="puzzle-status" role="status" aria-live="polite" aria-atomic="true"></p>
+    <div class="toolbar" id="extras"></div>
+    <div class="toolbar"><button class="btn" id="restart">다시 하기</button><button class="btn primary" id="next" disabled>다음 단계</button></div>
+    <p class="hint">진행 단계는 이 기기에 저장해요. Tab 키로 선택하고 Enter·스페이스로 조작해요.</p>
+  </main>
+  <script src="../assets/common.js?v=b8e111b3"></script>
+  <script src="../assets/ad-puzzles.js?v=da8aefac"></script>
+  <script src="logic.js?v=a1db3672"></script>
+  <script src="game.js?v=a2377780"></script>
+</body>
+</html>
