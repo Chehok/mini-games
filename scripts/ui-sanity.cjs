@@ -59,7 +59,7 @@ function contrast(fg, bg) {
   const puzzlePages=['pin-pull','water-sort','screw-puzzle','parking-jam','untangle'];
   const pages=[...new Set(['', ...puzzlePages, ...fs.readdirSync(root).filter(d=>fs.existsSync(path.join(root,d,'index.html')))])];
   for (const width of [320,360,390,1280]) for (const theme of ['light','dark']) {
-    await cdp('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:width===390?2:1,mobile:false});
+    await cdp('Emulation.setDeviceMetricsOverride',{width,height:width===390?844:900,deviceScaleFactor:width===390?2:1,mobile:false});
     await cdp('Emulation.setEmulatedMedia',{features:[{name:'prefers-color-scheme',value:theme}]});
     for (const page of pages) {
       if (width===320 && page!=='wordle' && !puzzlePages.includes(page)) continue;
@@ -100,6 +100,7 @@ function contrast(fg, bg) {
       if(puzzlePages.includes(page)) {
         assert(await evaluate(`!!document.querySelector('.puzzle-settings select') && document.querySelector('.sound-toggle').getAttribute('aria-pressed')==='false' && document.querySelector('#status').getAttribute('aria-live')==='polite'`), page+': shared HUD, silent default and live status');
         if(page==='pin-pull') assert(await evaluate(`document.querySelector('canvas').width >= document.querySelector('canvas').clientWidth * devicePixelRatio - 3`), 'pin canvas DPR');
+        if(width===390&&['pin-pull','screw-puzzle'].includes(page)) assert(await evaluate(`document.querySelector('#next').getBoundingClientRect().bottom<=innerHeight`),page+': board, HUD and actions fit 390×844');
         if([320,390,1280].includes(width)) {
           const png=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:true,clip:{x:0,y:0,width,height:await evaluate('document.documentElement.scrollHeight'),scale:1}});
           fs.writeFileSync(path.join(profile,`${page}-${width}-${theme}.png`),Buffer.from(png.data,'base64'));
@@ -139,14 +140,16 @@ function contrast(fg, bg) {
   }
   // Dense late stages must fit too; initial-page coverage alone misses 12-tube layouts.
   for(const width of [320,390,1280]) for(const theme of ['light','dark']) {
-    await cdp('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:2,mobile:false});
+    await cdp('Emulation.setDeviceMetricsOverride',{width,height:width===390?844:900,deviceScaleFactor:2,mobile:false});
     await cdp('Emulation.setEmulatedMedia',{features:[{name:'prefers-color-scheme',value:theme},{name:'prefers-reduced-motion',value:'reduce'}]});
     for(const page of puzzlePages) {
       await loaded(base+page+'/');
-      await evaluate(`MG.store.set('${page}.level',${page==='water-sort'?25:12})`);
+      await evaluate(`MG.store.set('${page}.level',${page==='water-sort'?25:['pin-pull','screw-puzzle'].includes(page)?18:12})`);
       await loaded(base+page+'/');
       assert(await evaluate('document.documentElement.scrollWidth <= innerWidth'), `${page}: dense overflow at ${width} ${theme}`);
       assert(await evaluate(`Array.from(document.querySelectorAll('#board button')).every(b=>{const r=b.getBoundingClientRect();return r.width>=44 && r.height>=44;})`), page+': dense touch targets');
+      if(page==='pin-pull') assert(await evaluate(`document.querySelector('canvas').width >= document.querySelector('canvas').clientWidth * devicePixelRatio - 3`), 'dense pin canvas DPR');
+      if(width===390&&['pin-pull','screw-puzzle'].includes(page)) assert(await evaluate(`document.querySelector('#next').getBoundingClientRect().bottom<=innerHeight`),page+': late-stage actions fit 390×844');
       if(page==='water-sort') assert.equal(await evaluate(`document.querySelectorAll('.tube').length`),12,'ten colors plus two empty tubes');
       const png=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:true,clip:{x:0,y:0,width,height:await evaluate('document.documentElement.scrollHeight'),scale:1}});
       fs.writeFileSync(path.join(profile,`${page}-dense-${width}-${theme}.png`),Buffer.from(png.data,'base64'));
