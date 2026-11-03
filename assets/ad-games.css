@@ -210,3 +210,31 @@ body[data-game="water-sort"] .puzzle-actions .btn { min-width: 0; padding-inline
   .untangle-board { border-color: #557f7a; background: radial-gradient(ellipse at 40% 20%,#5a938577,transparent 80%),radial-gradient(circle,#c3e9d91a .7px,transparent 1px) 0 0 / 6px 6px,#253f43; box-shadow: inset 0 2px 10px #112b3299,0 4px 0 #1b3037; }
   .peg-destination { color: #ddfff1; border-color: #9adbc1; background: #e1fff11a; }
 }
+
+/* Level introductions share a compact, accessible note in both workshops. */
+.mechanic-hint { margin: 0 0 8px; padding: 9px 12px; border: 1px solid #c6d6f4; border-left: 4px solid #8271dd; border-radius: 12px; background: linear-gradient(115deg,#f3efff,#edf9ff); color: #35466c; font-size: .76rem; line-height: 1.5; text-wrap: pretty; }
+.mechanic-hint[hidden] { display: none; }
+.box-queue { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px; margin-top: 7px; color: #344c69; font-size: .68rem; font-weight: 800; }
+.queue-chip { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 7px; color: #fff; background: var(--piece); box-shadow: inset 0 1px #ffffff88,0 2px 2px #12345533; text-shadow: 0 1px 2px #123455; }
+.move-budget { margin: 6px 0 0; color: #594389; font-size: .69rem; text-align: center; font-weight: 800; }
+/* The material is clipped, while the full-size screw controls remain tappable. */
+.screw-board .plate { border: 0; border-radius: 0; background: none; box-shadow: none; pointer-events: none; }
+.plate-face { position: absolute; inset: 0; border: 2px solid #ffffffbb; border-radius: 16px; box-shadow: inset 0 2px 2px #ffffffbb,inset 0 -5px 2px #10213f22,0 5px 0 #38496670,0 13px 14px #20365250; }
+.plate-face.wood { background: repeating-linear-gradient(2deg,transparent 0 6px,#7e48141f 7px,transparent 8px 13px),linear-gradient(160deg,#f9ce88,#dca65e 45%,#bc7e3a); border-color: #ffe5ac #c48c4c #a86c33 #ffe2a6; }
+.plate-face.acrylic { background: linear-gradient(120deg,#ffffff77,transparent 35% 55%,#ffffff26 56% 58%,transparent 59%),linear-gradient(155deg,var(--piece-light),var(--piece)); }
+.plate-face.metal { background: repeating-linear-gradient(0deg,#ffffff09 0 1px,#435f7312 1px 2px),linear-gradient(160deg,#f2f6f9,#a9c4d5 45%,#7a9db3 70%,#d0e3ef); }
+.shape-circle .plate-face { border-radius: 50%; }
+.shape-triangle .plate-face { border-radius: 0; clip-path: polygon(50% 0,100% 100%,0 100%); }
+.shape-L .plate-face { border-radius: 0; clip-path: polygon(0 0,43% 0,43% 57%,100% 57%,100% 100%,0 100%); }
+.shape-bar .plate-face { border-radius: 12px; }
+.screw-board .screw { pointer-events: auto; }
+.screw-lock { position: absolute; z-index: 3; top: -13px; left: -8px; min-width: 52px; padding: 2px 3px; border-radius: 7px; background: #edf9ff; color: #304662; border: 1px solid #aec7e3; font-size: .6rem; font-weight: 900; white-space: nowrap; }
+.screw.locked::before { background: radial-gradient(circle at 30% 20%,#fff,#c3e9fa 40%,#719ebd 80%); }
+.plate.swung .plate-label { color: #533e80; }
+@media (prefers-color-scheme: dark) {
+  .mechanic-hint { background: linear-gradient(115deg,#353052,#233f54); color: #eff4ff; border-color: #65789d; border-left-color: #baa8ff; }
+  .box-queue { color: #dfedff; }
+  .move-budget { color: #ecdbff; }
+}
+.screw-number { position: absolute; z-index: 2; left: -6px; bottom: -4px; display: grid; place-items: center; min-width: 17px; height: 17px; border: 1px solid #d4e5f4; border-radius: 50%; background: #233c58; color: #fff; font-size: .58rem; font-weight: 900; }
+.shape-triangle .plate-label,.shape-circle .plate-label { left: 45%; top: 7%; }

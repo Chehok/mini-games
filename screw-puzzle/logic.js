@@ -1,70 +1,82 @@
 (function (root) {
   'use strict';
-  // Each pair of plates supplies exactly two complete, three-screw boxes.
-  // Offsets expose lower screws, so choosing what to park in the tray matters.
-  const designs = [
-    [[7,12],[12,40]], [[13,11],[6,40]], [[7,10],[13,39]],
-    [[6,5],[18,25],[5,45],[16,64]], [[17,5],[5,25],[18,44],[6,64]],
-    [[9,5],[18,24],[4,44],[14,64]], [[5,5],[18,24],[6,44],[16,64]],
-    [[17,4],[4,24],[18,44],[6,64]],
-    [[6,3],[19,17],[4,32],[18,47],[5,62],[17,75]],
-    [[19,3],[5,17],[18,32],[4,47],[19,62],[6,75]],
-    [[10,3],[4,17],[19,32],[5,47],[18,62],[10,75]],
-    [[5,3],[19,17],[6,32],[18,47],[4,62],[19,75]],
-    [[18,3],[5,18],[17,33],[6,47],[18,61],[5,75]],
-    [[5,3],[17,17],[4,32],[19,46],[6,61],[17,75]],
-    [[12,3],[4,17],[19,31],[6,46],[18,61],[8,75]],
-    [[4,3],[18,17],[7,32],[19,47],[5,61],[17,75]],
-    [[18,3],[6,17],[19,32],[4,47],[17,61],[6,75]],
-    [[8,3],[18,17],[4,31],[19,46],[5,61],[15,75]]
-  ];
-  function level(n) {
-    n=Math.max(1,Math.min(designs.length,n));
-    const layout=designs[n-1], count=layout.length;
-    const plates=layout.map(([x,y],i) => {
-      const fromTop=count-1-i, pair=Math.floor(fromTop/2), a=(pair*2+n-1)%6, b=(a+1)%6;
-      return {x,y,w:count===2?80:count===4?76:74,h:count===2?44:count===4?29:22,
-        angle:((i+n)%2?1:-1)*(4+(i%3)*2),colors:fromTop%2===0?[a,b,a]:[b,a,b]};
-    });
-    const queue=[];
-    for(let i=count-1;i>=0;i-=2) queue.push(plates[i].colors[0],plates[i].colors[1]);
-    return {plates,queue};
-  }
   const positions=[{x:.17,y:.5},{x:.5,y:.5},{x:.83,y:.5}];
+  const s=(x,y,c,lock)=>({x,y,c,...(lock?{lock}:{} )});
+  const ice=(p,s)=>({p,s,type:'ice'}),chain=(p,s)=>({p,s,type:'chain'});
+  const q=(shape,x,y,w,h,angle,screws,extra={})=>({shape,x,y,w,h,angle,screws,colors:screws.map(s=>s.c),...extra});
+  // Plate order is back to front. No per-level offsets or generated color pairs:
+  // each board has its own silhouettes, attachment points and toolbox schedule.
+  const designs=[
+    {name:'첫 공구함',mechanics:['shapes','overlap','hidden'],hint:'같은 기호 나사 3개를 모아요. 위 판을 떼면 아래 나사가 보여요.',queue:[0,1],buffer:3,
+      plates:[q('rect',12,38,76,44,-4,[s(.18,.55,0),s(.5,.55,1),s(.82,.55,0)]),q('bar',8,28,78,30,5,[s(.18,.5,1),s(.5,.5,0),s(.82,.5,1)])]},
+    {name:'동그라미와 세모',hint:'모양이 달라도 규칙은 같아요. 나사가 하나인 작은 판도 찾아보세요.',mechanics:['shapes','overlap','hidden'],queue:[0,1],buffer:3,
+      plates:[q('circle',10,35,48,48,0,[s(.35,.5,0),s(.68,.5,1)]),q('triangle',48,34,43,50,0,[s(.5,.62,0)]),q('bar',12,28,78,30,-7,[s(.18,.5,1),s(.5,.5,0),s(.82,.5,1)])]},
+    {name:'다음 색을 기다려요',mechanics:['shapes','overlap','hidden','queue','L'],hint:'ㄴ자 판도 나사를 모두 풀면 떨어져요. 아래의 다음 공구함도 살펴요.',queue:[0,1,2],buffer:3,
+      plates:[q('L',10,12,65,74,0,[s(.23,.2,2),s(.23,.76,0),s(.76,.79,2)]),q('triangle',35,22,59,64,0,[s(.5,.25,1),s(.25,.75,2),s(.75,.75,0)]),q('circle',18,8,56,56,-8,[s(.28,.45,0),s(.7,.45,1),s(.5,.75,1)])]},
+    {name:'작은 창 아래',mechanics:['shapes','overlap','hidden','queue'],hint:'판 아래의 나사는 아직 누를 수 없어요. 가리는 판부터 정리해요.',queue:[1,0,2],buffer:3,
+      plates:[q('bar',9,42,82,28,0,[s(.22,.5,2),s(.76,.5,2)]),q('rect',20,14,60,72,3,[s(.23,.2,0),s(.77,.2,1),s(.23,.78,2),s(.77,.78,0)]),q('triangle',13,10,72,65,-3,[s(.5,.25,1),s(.25,.75,0),s(.75,.75,1)])]},
+    {name:'네 방향의 꽃',mechanics:['shapes','overlap','hidden','queue','L'],queue:[0,2,1],buffer:3,
+      plates:[q('circle',25,24,50,50,0,[s(.5,.5,1)]),q('bar',8,35,84,30,35,[s(.2,.5,2),s(.8,.5,1)]),q('L',14,10,70,76,0,[s(.2,.22,0),s(.22,.78,2),s(.78,.8,1)]),q('triangle',27,14,60,65,0,[s(.5,.25,0),s(.25,.75,2),s(.75,.75,0)])]},
+    {name:'얼음 고리',mechanics:['ice','shapes','overlap','hidden','queue'],hint:'❄ 표시 나사는 연결된 번호의 나사를 풀면 녹아요.',queue:[0,1,2],buffer:3,
+      plates:[q('rect',12,41,76,42,-5,[s(.2,.5,2),s(.5,.5,1),s(.8,.5,2)]),q('circle',34,9,56,56,8,[s(.28,.4,0),s(.7,.4,2),s(.5,.75,1)]),q('bar',8,17,78,30,0,[s(.18,.5,0,ice(0,0)),s(.5,.5,1),s(.82,.5,0)])]},
+    {name:'고리를 풀어 주세요',mechanics:['chain','ice','shapes','overlap','hidden','queue','L'],hint:'🔗 고리는 적힌 나사를 풀면 열려요. 번호를 따라 순서를 찾아요.',queue:[1,2,0],buffer:3,
+      plates:[q('L',8,12,76,73,0,[s(.2,.2,0,chain(1,1)),s(.2,.78,2),s(.78,.8,0)]),q('triangle',30,18,62,65,-8,[s(.5,.25,2),s(.25,.75,1,ice(2,2)),s(.75,.75,0)]),q('circle',10,8,57,57,0,[s(.28,.42,1),s(.72,.42,2),s(.5,.75,1,chain(1,2))])]},
+    {name:'한 칸의 여유',mechanics:['shapes','overlap','hidden','queue','buffer'],hint:'이번에는 임시 칸이 한 곳이에요. 다음 공구함까지 생각해 봐요.',queue:[0,1,2],buffer:1,
+      plates:[q('triangle',8,20,78,68,0,[s(.2,.9,0),s(.5,.45,1),s(.8,.9,2)]),q('bar',13,40,76,30,-8,[s(.18,.5,2),s(.5,.5,1),s(.82,.5,0)]),q('circle',32,8,55,55,0,[s(.28,.42,2),s(.72,.42,0),s(.5,.75,1)])]},
+    {name:'네 색의 바람개비',hint:'기호가 네 가지로 늘었어요. 두 임시 칸과 다음 공구함을 함께 살펴요.',mechanics:['shapes','overlap','hidden','queue','L','buffer','colors'],queue:[2,0,3,1],buffer:2,
+      plates:[q('bar',6,36,88,28,-38,[s(.18,.5,1),s(.5,.5,3),s(.82,.5,1)]),q('bar',8,38,84,28,38,[s(.18,.5,3),s(.5,.5,1),s(.82,.5,0)]),q('L',12,12,72,74,0,[s(.2,.2,0),s(.2,.78,3),s(.78,.8,2)]),q('triangle',25,8,62,68,0,[s(.5,.25,2),s(.25,.75,0),s(.75,.75,2)])]},
+    {name:'흔들리는 다리',mechanics:['hinge','shapes','overlap','hidden','queue'],hint:'↪ 판은 나사가 하나 남으면 그 나사를 축으로 돌아요. 새로 열린 곳을 살펴요.',queue:[0,1,2],buffer:3,
+      plates:[q('rect',12,39,76,44,0,[s(.2,.5,2),s(.5,.5,0),s(.8,.5,2)]),q('circle',32,10,56,56,0,[s(.3,.4,1),s(.7,.4,2),s(.5,.75,1)]),q('bar',10,24,78,28,-5,[s(.18,.5,0),s(.5,.5,1),s(.82,.5,0)],{hinge:62})]},
+    {name:'돌아가는 ㄴ자',mechanics:['hinge','shapes','overlap','hidden','queue','L','buffer'],queue:[1,0,2],buffer:2,
+      plates:[q('triangle',13,24,76,64,0,[s(.5,.25,2),s(.25,.75,0),s(.75,.75,2)]),q('bar',9,22,80,28,8,[s(.18,.5,0),s(.5,.5,2),s(.82,.5,1)]),q('L',15,12,68,72,0,[s(.22,.22,1),s(.22,.78,0),s(.78,.8,1)],{hinge:-56})]},
+    {name:'공방 보너스',mechanics:['bonus','hinge','shapes','overlap','hidden','queue','buffer'],hint:'보너스는 횟수 안에 끝내요. 되돌리기도 1회이니 신중하게 골라요.',queue:[0,2,1],buffer:2,moveLimit:11,
+      plates:[q('circle',8,35,48,48,0,[s(.35,.5,1),s(.68,.5,1)]),q('triangle',48,31,44,53,0,[s(.5,.6,2)]),q('rect',16,14,66,58,5,[s(.22,.23,2),s(.78,.23,0),s(.22,.77,1),s(.78,.77,2)]),q('bar',12,22,76,27,-5,[s(.25,.5,0),s(.75,.5,0)],{hinge:58})]},
+    {name:'아홉 번의 약속',mechanics:['bonus','ice','chain','shapes','overlap','hidden','queue','L','buffer'],queue:[1,0,2],buffer:1,moveLimit:9,
+      plates:[q('L',12,10,70,76,0,[s(.2,.2,2,chain(1,2)),s(.2,.8,0),s(.8,.8,2)]),q('triangle',20,16,72,68,4,[s(.5,.25,0),s(.25,.75,2),s(.75,.75,1,ice(2,0))]),q('bar',7,22,80,28,-3,[s(.18,.5,1),s(.5,.5,0,ice(1,2)),s(.82,.5,1)])]},
+    {name:'여섯 기호 전시회',mechanics:['shapes','overlap','hidden','queue','L','colors'],hint:'기호가 여섯 가지로 늘었어요. 색과 기호를 함께 보고 다음 공구함을 준비해요.',queue:[0,1,2,3,4,5],buffer:3,
+      plates:[q('circle',24,30,52,52,0,[s(.28,.42,5),s(.72,.42,1),s(.5,.75,5)]),q('bar',10,52,80,28,0,[s(.18,.5,4),s(.5,.5,5),s(.82,.5,4)]),q('L',10,10,74,76,0,[s(.2,.2,3),s(.2,.8,2),s(.8,.8,3)]),q('triangle',22,20,66,65,0,[s(.5,.25,2),s(.25,.75,3),s(.75,.75,2)]),q('rect',15,12,70,46,6,[s(.2,.5,1),s(.5,.5,0),s(.8,.5,1)]),q('bar',10,17,78,28,-4,[s(.18,.5,0),s(.5,.5,4),s(.82,.5,0)])]},
+    {name:'고리 속 작은 별',mechanics:['chain','shapes','overlap','hidden','queue','buffer','colors'],queue:[3,1,0,2],buffer:2,
+      plates:[q('circle',20,22,60,60,0,[s(.25,.35,2),s(.75,.35,0),s(.25,.7,2),s(.75,.7,0)]),q('triangle',8,16,68,70,-6,[s(.5,.3,1),s(.28,.72,2)]),q('bar',8,39,84,28,25,[s(.2,.5,0,chain(3,1)),s(.8,.5,3)]),q('circle',35,8,52,52,0,[s(.3,.4,3),s(.7,.4,1),s(.3,.7,3),s(.7,.7,1)])]},
+    {name:'얼음 위 시소',mechanics:['hinge','ice','shapes','overlap','hidden','queue','L','buffer','colors'],queue:[0,2,1,3],buffer:1,
+      plates:[q('rect',10,34,80,48,0,[s(.2,.5,3),s(.5,.5,1),s(.8,.5,3)]),q('L',13,12,70,72,0,[s(.2,.2,1,ice(3,0)),s(.2,.78,3),s(.78,.8,2)]),q('circle',30,11,56,56,0,[s(.28,.42,2),s(.72,.42,1),s(.5,.75,0)]),q('bar',7,26,82,28,-6,[s(.18,.5,0),s(.5,.5,2),s(.82,.5,0)],{hinge:70})]},
+    {name:'다섯 색 나선',hint:'나사 네 개가 달린 긴 판이에요. 다섯 기호의 도착 순서를 생각해 봐요.',mechanics:['shapes','overlap','hidden','queue','L','buffer','colors'],queue:[2,0,4,1,3],buffer:2,
+      plates:[q('bar',8,50,84,28,0,[s(.2,.5,3),s(.8,.5,3)]),q('triangle',12,14,76,72,0,[s(.5,.22,1),s(.25,.75,3),s(.75,.75,1)]),q('L',10,10,75,76,0,[s(.2,.2,4),s(.2,.78,1),s(.78,.8,4)]),q('circle',34,17,54,54,0,[s(.3,.42,0),s(.7,.42,4),s(.5,.75,2)]),q('rect',9,15,78,38,4,[s(.16,.5,2),s(.39,.5,0),s(.62,.5,2),s(.85,.5,0)])]},
+    {name:'두 개의 회전문',mechanics:['hinge','chain','shapes','overlap','hidden','queue','L','buffer','colors'],queue:[1,0,3,2],buffer:2,
+      plates:[q('circle',22,30,56,56,0,[s(.28,.42,2,chain(2,2)),s(.72,.42,3),s(.5,.75,2)]),q('bar',12,42,76,28,10,[s(.18,.5,3),s(.5,.5,2),s(.82,.5,0)],{hinge:-48}),q('L',13,10,73,75,0,[s(.2,.2,0),s(.2,.78,3),s(.78,.8,1)]),q('bar',8,20,82,28,-8,[s(.18,.5,1),s(.5,.5,0),s(.82,.5,1)],{hinge:62})]},
+    {name:'열두 번의 집중',mechanics:['bonus','hinge','ice','shapes','overlap','hidden','queue','buffer','colors'],queue:[0,1,2,3],buffer:1,moveLimit:12,
+      plates:[q('triangle',12,20,76,70,0,[s(.5,.25,3,ice(2,1)),s(.25,.75,2),s(.75,.75,3)]),q('rect',12,30,76,42,-7,[s(.2,.5,2),s(.5,.5,3),s(.8,.5,1)]),q('circle',32,10,56,56,0,[s(.28,.42,1),s(.72,.42,2),s(.5,.75,0)]),q('bar',7,20,80,28,6,[s(.18,.5,0),s(.5,.5,1),s(.82,.5,0)],{hinge:-64})]},
+    {name:'공구함 축제',mechanics:['hinge','chain','ice','bonus','shapes','overlap','hidden','queue','L','buffer','colors'],queue:[0,2,1,4,3,5],buffer:2,moveLimit:20,
+      plates:[q('circle',25,29,54,54,0,[s(.28,.42,5,chain(2,1)),s(.72,.42,3),s(.5,.75,5)]),q('triangle',10,17,78,72,0,[s(.5,.25,3),s(.25,.75,5),s(.75,.75,3)]),q('L',10,10,76,76,0,[s(.2,.2,4),s(.2,.8,1,ice(4,0)),s(.8,.8,4)]),q('bar',10,43,78,28,-12,[s(.18,.5,1),s(.5,.5,4),s(.82,.5,2)],{hinge:52}),q('rect',14,14,72,42,5,[s(.2,.5,2),s(.5,.5,0),s(.8,.5,1)]),q('bar',7,18,82,28,-4,[s(.18,.5,0),s(.5,.5,2),s(.82,.5,0)],{hinge:-60})]}
+  ];
+  function level(n){const d=JSON.parse(JSON.stringify(designs[Math.max(0,Math.min(designs.length-1,Math.floor(n)-1))]));d.queue=d.queue||[0,1];return d;}
+  const fullMask=q=>(1<<q.screws.length)-1;
+  const done=(d,st,p)=>st.removed[p]===fullMask(d.plates[p]);
+  const solved=(d,st)=>!st.failed&&d.plates.every((_,p)=>done(d,st,p))&&st.tray.length===0&&st.boxes.every(b=>!b);
   function worldPoint(q,p){const a=q.angle*Math.PI/180,dx=q.w*(p.x-.5),dy=q.h*(p.y-.5);return {x:q.x+q.w/2+dx*Math.cos(a)-dy*Math.sin(a),y:q.y+q.h/2+dx*Math.sin(a)+dy*Math.cos(a)};}
-  function initial(data) { return {removed:data.plates.map(()=>0), boxes:data.queue.slice(0,2).map((c,id)=>({c,n:0,id})), next:2, tray:[]}; }
-  function available(data,state,p,s) {
-    if(state.removed[p]&(1<<s)) return false;
-    const plate=data.plates[p], spot=positions[s], pos=worldPoint(plate,spot), x=pos.x, y=pos.y;
-    for(let j=p+1;j<data.plates.length;j++) {
-      if(state.removed[j]===7) continue;
-      const q=data.plates[j];
-      // Plates rotate in a 100 × 100 board; use the same inverse transform as CSS.
-      const rad=-q.angle*Math.PI/180,dx=x-q.x-q.w/2,dy=y-q.y-q.h/2;
-      const lx=dx*Math.cos(rad)-dy*Math.sin(rad)+q.w/2,ly=dx*Math.sin(rad)+dy*Math.cos(rad)+q.h/2;
-      if(lx+8>0&&lx-8<q.w&&ly+8>0&&ly-8<q.h)return false;
-    }
-    return true;
+  function pose(data,state,p){const q=data.plates[p],left=q.screws.filter((_,s)=>!(state.removed[p]&(1<<s)));if(!q.hinge||left.length!==1)return q;
+    const pivot=left[0],fixed=worldPoint(q,pivot),rotated={...q,angle:q.angle+q.hinge},moved=worldPoint(rotated,pivot);return {...rotated,x:q.x+fixed.x-moved.x,y:q.y+fixed.y-moved.y,swung:true};}
+  const polygon=q=>q.shape==='triangle'?[[.5,0],[1,1],[0,1]]:q.shape==='L'?[[0,0],[.43,0],[.43,.57],[1,.57],[1,1],[0,1]]:[[0,0],[1,0],[1,1],[0,1]];
+  function covers(q,x,y,pad=5){
+    const a=-q.angle*Math.PI/180,dx=x-q.x-q.w/2,dy=y-q.y-q.h/2,lx=dx*Math.cos(a)-dy*Math.sin(a)+q.w/2,ly=dx*Math.sin(a)+dy*Math.cos(a)+q.h/2;
+    if(q.shape==='circle')return ((lx-q.w/2)/(q.w/2+pad))**2+((ly-q.h/2)/(q.h/2+pad))**2<=1;
+    const pts=polygon(q).map(([x,y])=>[x*q.w,y*q.h]);let inside=false;
+    for(let i=0,j=pts.length-1;i<pts.length;j=i++){
+      const [ax,ay]=pts[i],[bx,by]=pts[j];if((ay>ly)!==(by>ly)&&lx<(bx-ax)*(ly-ay)/(by-ay)+ax)inside=!inside;
+      const dx=bx-ax,dy=by-ay,t=Math.max(0,Math.min(1,((lx-ax)*dx+(ly-ay)*dy)/(dx*dx+dy*dy)));if(Math.hypot(lx-ax-dx*t,ly-ay-dy*t)<=pad)return true;
+    }return inside;
   }
-  function settle(data,state) {
-    let changed=true;
-    while(changed) {
-      changed=false;
-      for(let i=0;i<state.tray.length;i++) {
-        const box=state.boxes.find(b=>b && b.c===state.tray[i]);
-        if(box) { box.n++; state.tray.splice(i,1); changed=true; break; }
-      }
-      state.boxes=state.boxes.map(b => {
-        if(b && b.n===3) { changed=true; return state.next<data.queue.length?{c:data.queue[state.next],n:0,id:state.next++}:null; }
-        return b;
-      });
-    }
+  function initial(data){return {removed:data.plates.map(()=>0),boxes:data.queue.slice(0,2).map((c,id)=>({c,n:0,id})),next:Math.min(2,data.queue.length),tray:[],moves:0,failed:false};}
+  function locked(data,state,p,s){const lock=data.plates[p]?.screws[s]?.lock;return !!lock&&!(state.removed[lock.p]&(1<<lock.s));}
+  function available(data,state,p,s){if(state.failed||!data.plates[p]?.screws[s]||state.removed[p]&(1<<s)||locked(data,state,p,s))return false;const pos=worldPoint(pose(data,state,p),data.plates[p].screws[s]);
+    for(let j=p+1;j<data.plates.length;j++)if(!done(data,state,j)&&covers(pose(data,state,j),pos.x,pos.y))return false;return true;}
+  function settle(data,state){let changed=true;while(changed){changed=false;
+    state.boxes=state.boxes.map(b=>{if(b&&b.n===3){changed=true;return state.next<data.queue.length?{c:data.queue[state.next],n:0,id:state.next++}:null;}return b;});
+    for(let i=0;i<state.tray.length;i++){const box=state.boxes.find(b=>b&&b.c===state.tray[i]&&b.n<3);if(box){box.n++;state.tray.splice(i,1);changed=true;break;}}
+  }}
+  function remove(data,state,p,s){if(!available(data,state,p,s))return null;const next=JSON.parse(JSON.stringify(state));next.moves++;
+    if(data.moveLimit&&next.moves>data.moveLimit){next.failed=true;return next;}
+    next.removed[p]|=1<<s;next.tray.push(data.plates[p].screws[s].c);settle(data,next);if(next.tray.length>data.buffer)return null;return next;
   }
-  function remove(data,state,p,s) {
-    if(!available(data,state,p,s))return null;
-    const next=JSON.parse(JSON.stringify(state)); next.removed[p]|=1<<s; next.tray.push(data.plates[p].colors[s]); settle(data,next);
-    if(next.tray.length>3)return null;
-    return next;
-  }
-  root.ScrewLogic={designs,positions,level,initial,available,remove,worldPoint};
-})(typeof window === 'undefined' ? globalThis : window);
+  function undo(data,state,previous){const next=JSON.parse(JSON.stringify(previous));next.moves=state.moves+1;next.failed=!!data.moveLimit&&next.moves>data.moveLimit;return next;}
+  root.ScrewLogic={designs,positions,level,initial,available,locked,remove,undo,worldPoint,pose,covers,polygon,fullMask,done,solved};
+})(typeof window==='undefined'?globalThis:window);
