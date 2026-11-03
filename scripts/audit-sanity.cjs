@@ -185,31 +185,75 @@ for(let level=1;level<=Park.designs.length;level++) {
     const out=[];s.forEach((c,i)=>{if(c&&Park.canExit(s,i)){const n=s.slice();n[i]=null;out.push(n);}});return out;
   }), 'parking '+level+' BFS solvable');
 }
-// Search all legal screw choices until a solution is found, with memoization.
-assert(Screw.designs.length>=15&&Screw.designs.length<=20,'15–20 screw levels');
+// Compare actual geometry, ignoring names, hints, colors, materials and mechanics.
+// Pairwise tolerances also catch tiny shifts that evade an exact hash/grid boundary.
+const {createHash}=require('node:crypto');
+const {solveScrew,solvePin}=require('./puzzle-solvers.cjs');
+function signature(value){return createHash('sha256').update(JSON.stringify(value)).digest('hex');}
+function introductions(L){for(let n=1;n<=L.designs.length;n++){const d=L.level(n);assert(d.mechanics.length);assert(d.hint&&/[가-힣]/.test(d.hint),`${n}: Korean level strategy`);assert.equal(new Set(d.mechanics).size,d.mechanics.length);for(const m of d.mechanics)assert(L.mechanicHints[m]&&/[가-힣]/.test(L.mechanicHints[m]),`${n}: ${m} needs a per-mechanic Korean introduction`);}}
+const close=(a,b,tolerance)=>a.length===b.length&&a.every((n,i)=>Math.abs(n-b[i])<=tolerance);
+const sameSet=(a,b,near)=>a.length===b.length&&a.every(x=>b.some(y=>near(x,y)))&&b.every(y=>a.some(x=>near(x,y)));
+function nearPin(a,b){
+  const nearSeg=(a,b)=>close([a.x1,a.y1,a.x2,a.y2],[b.x1,b.y1,b.x2,b.y2],22)||close([a.x1,a.y1,a.x2,a.y2],[b.x2,b.y2,b.x1,b.y1],22);
+  return sameSet(a.walls,b.walls,nearSeg)&&sameSet(a.pins,b.pins,nearSeg)&&sameSet(a.cups,b.cups,(a,b)=>close([a.x1,a.x2,a.y],[b.x1,b.x2,b.y],22));
+}
+function nearScrew(a,b){return a.plates.length===b.plates.length&&a.plates.every((q,p)=>{
+  const r=b.plates[p];return q.shape===r.shape&&close([q.x,q.y,q.w,q.h],[r.x,r.y,r.w,r.h],6)&&Math.abs(q.angle-r.angle)<=12&&sameSet(q.screws,r.screws,(a,b)=>close([a.x,a.y],[b.x,b.y],.12));
+});}
+for(const [L,near] of [[Pin,nearPin],[Screw,nearScrew]]){
+  for(let n=1;n<=L.designs.length;n++)for(let m=1;m<n;m++)assert(!near(L.level(n),L.level(m)),`${n} and ${m}: nearly identical geometry`);
+  const original=L.level(1),renamed=JSON.parse(JSON.stringify(original));renamed.name='다른 이름';renamed.mechanics=[];
+  if(renamed.plates)renamed.plates.forEach(q=>{q.x+=1;q.angle+=1;q.colors=q.colors.map(c=>(c+1)%6);q.screws.forEach(s=>{s.x+=.01;});});
+  else {for(const s of [...renamed.walls,...renamed.pins]){s.x1+=2;s.x2+=2;}renamed.particles=[];}
+  assert(near(original,renamed),'renaming, recoloring or tiny shifts cannot disguise a repeated layout');
+}
+introductions(Screw);introductions(Pin);
+assert.equal(Screw.designs.length,20,'20 explicit screw boards');
+const screwSignatures=new Set();let crossedLayerSolutions=0,hingeCoverageChanges=0;
 for(let level=1;level<=Screw.designs.length;level++) {
-  const data=Screw.level(level),visited=new Set();
-  assert(data.plates.some((_,p)=>[0,1,2].some(s=>!Screw.available(data,Screw.initial(data),p,s))),'layered plates actually cover screws');
-  const initial=Screw.initial(data),before=JSON.stringify(initial);
-  data.plates.forEach((_,p)=>[0,1,2].forEach(s=>{
-    if(!Screw.available(data,initial,p,s))assert.equal(Screw.remove(data,initial,p,s),null,'covered screws cannot be removed');
-  }));
-  assert.equal(JSON.stringify(initial),before,'rejected taps preserve the screw state');
-  function solve(state){
-    if(state.removed.every(n=>n===7))return true;
-    const key=JSON.stringify(state);if(visited.has(key))return false;visited.add(key);
-    for(let p=data.plates.length-1;p>=0;p--)for(let s=0;s<3;s++){
-      const next=Screw.remove(data,state,p,s);
-      if(next){
-        const removed=next.removed.reduce((n,mask)=>n+mask.toString(2).replace(/0/g,'').length,0);
-        const stored=next.tray.length+next.boxes.reduce((n,b)=>n+(b?b.n:0),0)+(next.next-next.boxes.filter(Boolean).length)*3;
-        assert.equal(removed,stored,'every screw remains in a box, buffer or completed box');
-        assert(next.tray.length<=3&&next.boxes.every(b=>!b||(b.n>=0&&b.n<3)));
-        if(solve(next))return true;
-      }
-    }return false;
+  const data=Screw.level(level),initial=Screw.initial(data),before=JSON.stringify(initial);
+  assert(data.palette.length&&data.palette.every(c=>Number.isInteger(c)&&c>=0&&c<6),'authored plate colors');
+  assert(data.materials.length&&data.materials.every(m=>['wood','metal','acrylic'].includes(m)),'authored plate materials');
+  const geometry=data.plates.map(q=>({shape:q.shape,x:q.x,y:q.y,w:q.w,h:q.h,angle:q.angle,screws:q.screws.map(s=>[s.x,s.y])}));
+  const sig=signature(geometry);assert(!screwSignatures.has(sig),'unique screw layout '+level);screwSignatures.add(sig);
+  const colors=data.plates.flatMap(q=>q.colors),counts=new Map();colors.forEach(c=>counts.set(c,(counts.get(c)||0)+1));
+  for(const [c,count] of counts)assert.equal(count,data.queue.filter(n=>n===c).length*3,'queue exactly fits all screws');
+  assert(data.buffer>=1&&data.buffer<=3);
+  let covered=0;
+  data.plates.forEach((q,p)=>{assert(q.screws.length>=1&&q.screws.length<=4);q.screws.forEach((spot,s)=>{
+    assert(Screw.covers(q,...Object.values(Screw.worldPoint(q,spot)),0),'screw belongs to the plate silhouette');
+    if(!Screw.available(data,initial,p,s)){covered++;assert.equal(Screw.remove(data,initial,p,s),null,'covered/locked screws reject input');}
+    if(spot.lock){assert(data.plates[spot.lock.p]?.screws[spot.lock.s],'lock reference exists');assert(Screw.locked(data,initial,p,s));}
+    if(spot.lock)assert(data.mechanics.includes(spot.lock.type),'actual lock has a matching introduction');
+  });});
+  if(data.plates.some(q=>q.hinge))assert(data.mechanics.includes('hinge'));
+  if(data.plates.filter(q=>q.hinge).length>1)assert(data.mechanics.includes('doubleHinge'));
+  if(data.plates.some(q=>q.screws.length===4))assert(data.mechanics.includes('four'));
+  if(data.plates.some(q=>q.shape==='cross'))assert(data.mechanics.includes('cross'));
+  assert(covered,'each board contains actual overlap/locks');assert.equal(JSON.stringify(initial),before,'rejected taps preserve state');
+  const solution=solveScrew(Screw,data,state=>{
+    if(state.failed)return;
+    const removed=state.removed.reduce((n,mask)=>n+mask.toString(2).replace(/0/g,'').length,0);
+    const stored=state.tray.length+state.boxes.reduce((n,b)=>n+(b?b.n:0),0)+(state.next-state.boxes.filter(Boolean).length)*3;
+    assert.equal(removed,stored,'every screw remains in a box, buffer or completed box');
+    assert(state.tray.length<=data.buffer&&state.boxes.every(b=>!b||(b.n>=0&&b.n<3)));
+    assert(!data.moveLimit||state.moves<=data.moveLimit);
+  });
+  assert(solution,'screw '+level+' search finds a solution');
+  let state=initial,lastPlate=data.plates.length-1;
+  for(const [p,s] of solution){if(p>lastPlate)crossedLayerSolutions++;lastPlate=p;const old=state;state=Screw.remove(data,state,p,s);assert(state);
+    const pose=Screw.pose(data,state,p);if(pose.swung){const anchor=data.plates[p].screws.find((_,s)=>!(state.removed[p]&(1<<s)));const a=Screw.worldPoint(data.plates[p],anchor),b=Screw.worldPoint(pose,anchor);assert(Math.hypot(a.x-b.x,a.y-b.y)<1e-7,'hinge preserves its remaining anchor');const flat=JSON.parse(JSON.stringify(data));flat.plates[p].hinge=0;for(let j=0;j<p;j++)for(let t=0;t<data.plates[j].screws.length;t++)if(Screw.available(data,state,j,t)!==Screw.available(flat,state,j,t))hingeCoverageChanges++;}
+    if(data.moveLimit){const exceeded={...old,moves:data.moveLimit};assert(Screw.remove(data,exceeded,p,s).failed,'bonus fails if a legal move exceeds the limit');const undo=Screw.undo(data,exceeded,initial);assert(undo.failed&&undo.moves===data.moveLimit+1,'undo also consumes bonus budget');}
   }
-  assert(solve(Screw.initial(data)),'screw '+level+' solvable');
+  assert(Screw.solved(data,state)&&state.tray.length===0,'all plates and boxes finish together');
+}
+assert(hingeCoverageChanges>=7,'hinges really change lower screw coverage');
+assert(crossedLayerSolutions>=3,'several solutions must revisit upper plates after removing exposed lower screws');
+// This board cannot be solved by simply stripping every plate from the top down.
+{
+ const d=Screw.level(8);let state=Screw.initial(d);for(const [p,s] of [[2,0],[2,1],[2,2]])state=Screw.remove(d,state,p,s);
+ assert.equal(state.tray.length,1);assert(Screw.available(d,state,1,0));assert.equal(Screw.remove(d,state,1,0),null,'one-slot buffer prevents the obvious next screw');
+ assert(Screw.remove(d,state,0,0),'exposed lower screw unlocks progress');
 }
 let untangleWitnesses=0;
 for(const level of [...Array.from({length:60},(_,i)=>i+1),250,9999])for(let sample=0;sample<4;sample++) {
@@ -223,49 +267,43 @@ for(const level of [...Array.from({length:60},(_,i)=>i+1),250,9999])for(let samp
 assert(U.intersects({x:0,y:0},{x:10,y:10},{x:0,y:10},{x:10,y:0}));
 assert(U.intersects({x:0,y:0},{x:10,y:0},{x:5,y:0},{x:15,y:0}),'collinear overlap counts');
 assert.deepEqual(JSON.parse(JSON.stringify(U.crossingPoint({x:0,y:0},{x:10,y:10},{x:0,y:10},{x:10,y:0}))),{x:5,y:5},'crossing glows sit at the intersection');
-// Replay the exact fixed-step particle engine used on canvas, not an abstract graph.
+// Replay the same fixed-step physical simulation as the canvas, including paint,
+// heavy balls, key collection, mud contacts and each individual cup quota.
 let wrongOrders=0;
-assert(Pin.designs.length>=15&&Pin.designs.length<=20,'15–20 pin levels');
-assert(Pin.R>=9&&Pin.R<=11,'gems stay large enough to read on a phone');
-assert(Pin.designs.filter(d=>d.branch).length>=4,'later levels include branching gem chambers');
-for(let level=1;level<=Pin.designs.length;level++) {
+assert.equal(Pin.designs.length,20,'20 explicit pin chambers');
+assert(Pin.R>=9&&Pin.R<=11,'phone-readable gems');
+const pinSignatures=new Set();
+for(let level=1;level<=Pin.designs.length;level++){
   const data=Pin.level(level);
-  assert.equal(new Set(data.order).size,data.pins.length,'intended order visits every pin once');
-  assert(data.particles.every(p=>p.x>68+Pin.R&&p.x<292-Pin.R&&p.y>16+Pin.R),'particles start inside the wider chambers');
+  const segments=items=>items.map(({x1,y1,x2,y2})=>[[x1,y1],[x2,y2]].sort()).sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)));
+  const sig=signature({walls:segments(data.walls),pins:segments(data.pins),particles:data.particles.map(p=>[p.x,p.y,p.kind]).sort()});
+  assert(!pinSignatures.has(sig),'unique pin layout '+level);pinSignatures.add(sig);
+  assert.equal(new Set(data.order).size,data.order.length,'solution never pulls a pin twice');
+  assert(data.order.every(i=>data.pins[i]),'solution references real pins');
+  assert(data.particles.every(p=>p.x>0&&p.x<360&&p.y>0&&p.y<data.height),'particles start on the board');
+  const handles=data.pins.map(p=>{const dx=p.x2-p.x1,dy=p.y2-p.y1,len=Math.hypot(dx,dy);return {x:Math.max(28,Math.min(332,p.x1-dx/len*24)),y:Math.max(28,Math.min(data.height-28,p.y1-dy/len*24))};});
+  handles.forEach((a,i)=>handles.slice(0,i).forEach(b=>assert(Math.hypot(a.x-b.x,a.y-b.y)*296/360>=44,'44px pin targets do not overlap on a 320px phone')));
+  for(const pin of data.pins)assert(data.mechanics.includes(pin.x1===pin.x2?'vertical':pin.y1===pin.y2?'horizontal':'diagonal'),'actual pin direction has an introduction');
+  const found=solvePin(Pin,data);assert(found,`pin ${level}: search independently finds a physical solution`);
+  assert(Pin.solved(data,Pin.simulate(data,found)),'searched pin solution replays');
   const state=Pin.simulate(data,data.order);
   assert(Pin.solved(data,state),`pin ${level} physical simulation wins (${state.collected}/${data.target}): ${state.reason}`);
-  assert(state.collected>=data.target);
-  assert.equal(state.lost,0,'intended solution loses no gems');
-  assert.equal(state.drained,data.particles.filter(p=>p.kind==='mud').length,'all mud drains into side bins');
-  assert(state.balls.every(b=>[b.x,b.y,b.vx,b.vy].every(Number.isFinite)),'physics stays finite');
-  assert(state.balls.filter(b=>b.kind==='mud').every(b=>b.status==='out'&&(b.x<68||b.x>292)),'mud visibly reaches a side bin');
-  const cup=state.balls.filter(b=>b.status==='cup');
-  assert(Math.max(...cup.map(b=>b.y))-Math.min(...cup.map(b=>b.y))>Pin.R*2,'gems form a multi-row physical pile in the cup');
-  assert.equal(JSON.stringify(Pin.simulate(data,data.order)),JSON.stringify(state),'fixed-step replay is deterministic');
-  const wrong=[...data.pins.map((p,i)=>p.kind==='gem'?i:-1).filter(i=>i>=0),...data.order];
-  const bad=Pin.simulate(data,wrong);
-  if(bad.failed){wrongOrders++;assert(!Pin.solved(data,bad));assert(/섞|진흙/.test(bad.reason));}
-  if(data.tiers){
-    const floorsFirst=data.pins.map((p,i)=>p.kind==='floor'?i:-1).filter(i=>i>=0);
-    assert(Pin.simulate(data,[...floorsFirst,...data.order]).failed,`pin ${level}: opening a muddy floor first must fail`);
-  }
+  assert.equal(state.collected,data.total);assert.equal(state.lost,0);
+  assert.equal(state.drained,data.particles.filter(p=>p.kind==='mud').length,'all mud reaches the side outlet');
+  assert(state.balls.every(b=>[b.x,b.y,b.vx,b.vy].every(Number.isFinite)),'finite physical state');
+  assert(state.balls.filter(b=>b.status==='cup').every(b=>b.kind==='gem'),'all gray gems converted before collection');
+  assert(data.cups.every((c,i)=>state.cups[i]===c.quota),'each cup receives its own quota');
+  assert.equal(JSON.stringify(Pin.simulate(data,data.order)),JSON.stringify(state),'deterministic fixed-step replay');
+  if(data.mechanics.some(m=>['mud','stone','lock','trick','paint'].includes(m)))assert(data.wrong.length,'hazards/paint/lock/trick have an authored wrong order');
+  for(const order of data.wrong){const bad=Pin.simulate(data,order);assert(!Pin.solved(data,bad),`pin ${level}: designed wrong order ${order} cannot win`);wrongOrders++;assert(bad.failed||data.pins.some((p,i)=>p.lock&&!bad.open[i]),'wrong order causes physical failure or leaves a locked pin closed');}
+  for(const [i,pin] of data.pins.entries())if(pin.lock){const locked=Pin.initial(data);assert(Pin.locked(data,locked,i));assert.equal(Pin.pull(data,locked,i),false,'locked pin rejects early tap');assert(!locked.open[i]);}
 }
-assert.equal(wrongOrders,Pin.designs.filter(d=>d.tiers).length,'every muddy level rejects gems-first play');
-// Closed pins support a real pile; a duplicate tap cannot pull twice.
 {
-  const data=Pin.level(1),s=Pin.initial(data);
-  for(let tick=0;tick<240;tick++)Pin.step(data,s);
-  assert(s.balls.every(b=>b.y<data.pins[0].y1-Pin.R),'closed pin catches falling gems');
-  assert.equal(s.collected,0);assert(Pin.pull(data,s,0));assert.equal(Pin.pull(data,s,0),false);
-}
-// A fast tap sequence cannot bypass gravity/mixing, and loss is a genuine failure.
-{
-  const data=Pin.level(6),s=Pin.initial(data);
-  for(const i of data.order.slice().reverse())Pin.pull(data,s,i);
-  for(let tick=0;tick<1200;tick++)Pin.step(data,s);
-  assert(s.failed,'pulling every pin immediately fails');
-  const spill=Pin.initial(Pin.level(1));spill.balls.forEach(b=>{b.x=-30;b.y=520;});
-  Pin.step(Pin.level(1),spill);assert(spill.failed);assert(/놓쳤/.test(spill.reason));
+ const d=Pin.level(1),s=Pin.initial(d);for(let tick=0;tick<240;tick++)Pin.step(d,s);
+ assert(s.balls.every(b=>b.y<d.pins[0].y1-Pin.R),'closed pin physically supports gems');assert.equal(s.collected,0);assert(Pin.pull(d,s,0));assert.equal(Pin.pull(d,s,0),false);
+ const spill=Pin.initial(d);spill.balls.forEach(b=>{b.x=-30;b.y=520;});Pin.step(d,spill);assert(spill.failed&&/놓쳤/.test(spill.reason));
+ const cup=Pin.simulate(d,d.order).balls.filter(b=>b.status==='cup');assert(Math.max(...cup.map(b=>b.y))-Math.min(...cup.map(b=>b.y))>Pin.R,'gems physically stack in the cup');
+ const muddy=Pin.level(4),fast=Pin.initial(muddy);for(const i of muddy.order.slice().reverse())Pin.pull(muddy,fast,i);for(let t=0;t<1200;t++)Pin.step(muddy,fast);assert(fast.failed,'rapid wrong pulls cannot bypass mixing');
 }
 for(const value of [0,.5,.999999]) {
   const d=W.generate(1,()=>value);let t=d.tubes;assert(!W.solved(t));
@@ -276,52 +314,12 @@ assert.equal(U.generate(1,rnd).nodes.length,4,'untangle tutorial starts with fou
 assert(U.clear([U.generate(1,rnd).solution[0],...U.generate(1,rnd).nodes.slice(1)],U.generate(1,rnd).edges),'one peg solves the untangle tutorial');
 assert.equal(W.generate(25,rnd).colors,10,'water grows to ten colors');
 assert.equal(W.generate(9999,rnd).colors,10,'water remains bounded');
-console.log(`PASS: water small-case BFS + ${waterWitnesses} reverse-shuffle solution witnesses (2–10 colors); ${Park.designs.length} parking BFS, ${Screw.designs.length} screw searches + blocked taps/conservation; ${Pin.designs.length} deterministic physical pin solutions + cup piles/side bins, ${wrongOrders} gem-first failures + muddy floor/rapid-pull/lost-gem failures; ${untangleWitnesses} planar untangle solutions (through level 9,999)`);
+console.log(`PASS: water small-case BFS + ${waterWitnesses} reverse-shuffle solution witnesses (2–10 colors); ${Park.designs.length} parking BFS; ${Screw.designs.length} screw + ${Pin.designs.length} independent physical pin searches; exact/near layout comparisons + per-mechanic hints + separated pin targets; screw locks/conservation/hinges/budgets; pin deterministic replay/cup piles/side bins + ${wrongOrders} wrong-order failures + locks/paint/cup quotas/rapid-pull/lost-gem checks; ${untangleWitnesses} planar untangle solutions (through level 9,999)`);
 
 // Run real controllers with a small DOM/RAF harness. This checks resets during async
 // pours/flights/driving and progress persistence without pretending to be a browser.
-function adController(dir,level=1,{reduced=true,unlocked=level}={}) {
-  let sequence=0;const frames=new Map(),saved=new Map([[dir+'.level',level],[dir+'.unlocked',unlocked]]),animations=[];
-  class Element {
-    constructor(tag='div') {this.tagName=tag;this.children=[];this.parentNode=null;this.dataset={};this.attributes={};this.listeners={};this.style={setProperty(k,v){this[k]=v;}};this._class='';this.textContent='';this.disabled=false;this.hidden=false;this.clientWidth=296;this.clientHeight=444;}
-    set className(value){this._class=value;}get className(){return this._class;}
-    get classList(){const e=this;return {contains:c=>e._class.split(' ').includes(c),add(...cs){e._class=[...new Set([...e._class.split(' '),...cs])].join(' ').trim();},remove(...cs){e._class=e._class.split(' ').filter(c=>!cs.includes(c)).join(' ');},toggle(c,on){if(on===undefined)on=!this.contains(c);on?this.add(c):this.remove(c);}};}
-    appendChild(el){el.remove();el.parentNode=this;this.children.push(el);return el;}
-    replaceChildren(...els){this.children.forEach(e=>{e.parentNode=null;});this.children=[];els.forEach(e=>this.appendChild(e));}
-    remove(){if(this.parentNode)this.parentNode.children=this.parentNode.children.filter(e=>e!==this);this.parentNode=null;}
-    before(el){const p=this.parentNode;if(!p)return;el.remove();el.parentNode=p;p.children.splice(p.children.indexOf(this),0,el);}
-    after(el){const p=this.parentNode;if(!p)return;el.remove();el.parentNode=p;p.children.splice(p.children.indexOf(this)+1,0,el);}
-    setAttribute(k,v){this.attributes[k]=String(v);if(k==='class')this.className=String(v);}getAttribute(k){return this.attributes[k]??null;}removeAttribute(k){delete this.attributes[k];}
-    addEventListener(type,fn){(this.listeners[type]||= []).push(fn);}
-    dispatch(type,extra={}){const event={button:0,pointerId:1,clientX:100,clientY:200,preventDefault(){},...extra};for(const fn of this.listeners[type]||[])fn(event);}
-    click(){if(this.disabled)return;this.dispatch('click');if(this.onclick)this.onclick();}
-    focus(){document.activeElement=this;}setPointerCapture(){}
-    get firstElementChild(){return this.children[0];}
-    getBoundingClientRect(){return {left:12,top:200,width:44,height:this.classList.contains('tube')?145:44};}
-    cloneNode(deep){const el=new Element(this.tagName);el.className=this.className;el.style={...this.style};el.dataset={...this.dataset};el.attributes={...this.attributes};el.textContent=this.textContent;if(deep)this.children.forEach(c=>el.appendChild(c.cloneNode(true)));return el;}
-    animate(keyframes,options){let finish;const finished=new Promise(resolve=>{finish=resolve;});animations.push({keyframes,options,finish});return {finished,cancel(){}};}
-    querySelectorAll(selector){
-      if(selector.includes(','))return [...new Set(selector.split(',').flatMap(s=>this.querySelectorAll(s.trim())))];
-      const match=(el,s)=>{
-        if(s==='button:not(:disabled)')return el.tagName==='button'&&!el.disabled;
-        const d=s.match(/^\[data-([\w-]+)="([^"]+)"\]$/);if(d)return String(el.dataset[d[1]])===d[2];
-        if(s.startsWith('.'))return el.classList.contains(s.slice(1));
-        return el.tagName===s;
-      };
-      const parts=selector.split(' '),out=[];
-      const visit=el=>{for(const c of el.children){if(match(c,parts.at(-1))){if(parts.length===1)out.push(c);else {let p=c.parentNode;while(p&&p!==this){if(match(p,parts[0])){out.push(c);break;}p=p.parentNode;}}}visit(c);}};visit(this);return out;
-    }
-    querySelector(s){return this.querySelectorAll(s)[0]||null;}
-    getContext(){const gradient=()=>({addColorStop(){}});return new Proxy({createLinearGradient:gradient,createRadialGradient:gradient},{get:(t,k)=>t[k]||(()=>{}),set:(t,k,v)=>(t[k]=v,true)});}
-  }
-  const body=new Element('body'),main=new Element('main');body.appendChild(main);
-  const ids=new Map();for(const id of ['level','moves','instructions','scene-meter','board','status','extras','restart','next']){const el=new Element(['restart','next'].includes(id)?'button':'div');el.id=id;main.appendChild(el);ids.set(id,el);}
-  const document={body,activeElement:null,getElementById:id=>ids.get(id),createElement:tag=>new Element(tag),createElementNS:(_,tag)=>new Element(tag),querySelectorAll:s=>body.querySelectorAll(s)};
-  const window={devicePixelRatio:2,innerWidth:320,addEventListener(){}};
-  const context={document,window,console,setTimeout:()=>0,matchMedia:q=>({matches:q.includes('reduced-motion')?reduced:false,addEventListener(){}}),getComputedStyle:()=>({getPropertyValue:k=>({'--surface-2':'#f7f8fb','--text':'#171923','--muted':'#606579'}[k]||'')}),requestAnimationFrame:fn=>{frames.set(++sequence,fn);return sequence;},cancelAnimationFrame:id=>frames.delete(id),MG:{store:{get:(k,f)=>saved.has(k)?saved.get(k):f,set:(k,v)=>saved.set(k,v)},rng:L=>{let a=L;return ()=>{a=(Math.imul(a,1664525)+1013904223)>>>0;return a/4294967296;};},vibrate(){},beep(){},unlockAudio(){}}};
-  for(const file of ['assets/ad-puzzles.js',dir+'/logic.js',dir+'/game.js']){vm.runInNewContext(read(file),context,{filename:file});Object.assign(context,window);}
-  return {ids,body,saved,window,animations,finishAnimations(){animations.splice(0).forEach(a=>a.finish());},press:id=>ids.get(id).click(),all:s=>body.querySelectorAll(s),ticks(n){for(let i=0;i<n;i++){const due=[...frames];frames.clear();due.forEach(([,fn])=>fn(i*1000/60+1000));}}};
-}
+const {adController}=require('./ad-controller-harness.cjs');
+
 (async()=>{
   const settle=async()=>{for(let i=0;i<12;i++)await Promise.resolve();};
   for(const dir of ['pin-pull','water-sort','screw-puzzle','parking-jam','untangle']){
@@ -356,7 +354,7 @@ function adController(dir,level=1,{reduced=true,unlocked=level}={}) {
   }
   const legacy=adController('water-sort',25);assert.equal(legacy.ids.get('board').children.length,12);assert.equal(legacy.saved.get('water-sort.level'),25,'legacy progress key stays compatible');
   for(const dir of ['pin-pull','screw-puzzle','parking-jam']){
-    const old=adController(dir,999,{unlocked:999});assert.equal(old.saved.get(dir+'.level'),18,'legacy level clamps to the new maximum');assert.equal(old.saved.get(dir+'.unlocked'),18,'legacy unlock clamps too');
+    const old=adController(dir,999,{unlocked:999});assert.equal(old.saved.get(dir+'.level'),dir==='parking-jam'?18:20,'legacy level clamps to the new maximum');assert.equal(old.saved.get(dir+'.unlocked'),dir==='parking-jam'?18:20,'legacy unlock clamps too');
   }
   {
     const g=adController('water-sort');

@@ -1,4 +1,4 @@
-// Browser smoke checks without dependencies. Run with a locally installed Chrome/Edge.
+// Node UI contracts by default; set BROWSER_PATH explicitly for browser rendering checks.
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -6,8 +6,9 @@ const http = require('node:http');
 const { spawn } = require('node:child_process');
 const assert = require('node:assert/strict');
 const root = path.resolve(__dirname, '..');
-const browser = process.env.BROWSER_PATH || ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(fs.existsSync);
-assert(browser, 'Set BROWSER_PATH to Chrome or Edge');
+if (!process.env.BROWSER_PATH || process.env.NODE_ONLY === '1') { require('./ui-node-sanity.cjs'); return; }
+const browser=process.env.BROWSER_PATH;
+assert(fs.existsSync(browser),'BROWSER_PATH must point to Chrome or Edge');
 const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'mini-games-ui-'));
 const server = http.createServer((req, res) => {
   const target = path.resolve(root, '.' + decodeURIComponent(req.url.split('?')[0]).replace(/^\/mini-games(?=\/)/, ''));
@@ -52,12 +53,12 @@ function contrast(fg, bg) {
     const msg = JSON.parse(event.data);
     if (msg.id) { const p=pending.get(msg.id); pending.delete(msg.id); msg.error?p.reject(msg.error):p.resolve(msg.result); }
     else if (msg.method==='Runtime.exceptionThrown') errors.push(msg.params.exceptionDetails);
-    else if (msg.method==='Log.entryAdded' && msg.params.entry.level==='error') errors.push(msg.params.entry);
+    else if (msg.method==='Log.entryAdded' && msg.params.entry.level==='error' && !/(gc\.zgo\.at|goatcounter\.com)/.test(msg.params.entry.url||msg.params.entry.text||'')) errors.push(msg.params.entry);
   });
   await cdp('Page.enable'); await cdp('Runtime.enable'); await cdp('Log.enable');
   const base='http://127.0.0.1:' + server.address().port + '/mini-games/';
   const puzzlePages=['pin-pull','water-sort','screw-puzzle','parking-jam','untangle'];
-  const denseLevels={'pin-pull':18,'water-sort':25,'screw-puzzle':18,'parking-jam':18,'untangle':25};
+  const denseLevels={'pin-pull':20,'water-sort':25,'screw-puzzle':20,'parking-jam':18,'untangle':25};
   const pages=[...new Set(['', ...puzzlePages, ...fs.readdirSync(root).filter(d=>fs.existsSync(path.join(root,d,'index.html')))])];
   for (const width of [320,360,390,1280]) for (const theme of ['light','dark']) {
     await cdp('Emulation.setDeviceMetricsOverride',{width,height:width===390?844:900,deviceScaleFactor:width===390?2:1,mobile:false});
@@ -142,6 +143,29 @@ function contrast(fg, bg) {
         fs.writeFileSync(path.join(profile,`wordle-${width}-${theme}.png`),Buffer.from(png.data,'base64'));
       }
     }
+  }
+  // Every handcrafted board, with a fresh hint and again after acknowledgment.
+  // Keep actual browser coverage separate from the Node DOM configurations.
+  for(const width of [390,1280])for(const theme of ['light','dark']){
+    await cdp('Emulation.setDeviceMetricsOverride',{width,height:width===390?844:900,deviceScaleFactor:2,mobile:false});
+    await cdp('Emulation.setEmulatedMedia',{features:[{name:'prefers-color-scheme',value:theme},{name:'prefers-reduced-motion',value:'reduce'}]});
+    for(const page of ['pin-pull','screw-puzzle'])for(let n=1;n<=20;n++){
+      await loaded(base+page+'/');
+      await evaluate(`(()=>{const L=${page==='pin-pull'?'PinLogic':'ScrewLogic'};for(const m of Object.keys(L.mechanicHints))MG.store.set('${page}.hint.'+m,false);MG.store.set('${page}.level',${n});})()`);
+      await loaded(base+page+'/');
+      for(const hints of ['new','seen']){
+        assert(await evaluate('document.documentElement.scrollWidth<=innerWidth'),`${page} ${n}: ${hints} hint overflow ${width} ${theme}`);
+        if(width===390)assert(await evaluate(`document.querySelector('#next').getBoundingClientRect().bottom<=innerHeight`),`${page} ${n}: ${hints} hint actions fit 390×844`);
+        if(hints==='new'&&width===390){
+          const png=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+          fs.writeFileSync(path.join(profile,`${page}-${n}-${theme}.png`),Buffer.from(png.data,'base64'));
+        }
+        await evaluate(`(()=>{let guard=30;while(!document.querySelector('.mechanic-hint').hidden&&guard--)document.querySelector('.mechanic-next').click();})()`);
+      }
+      await evaluate(`document.querySelector('#restart').click()`);
+      assert(await evaluate(`document.querySelector('.mechanic-hint').hidden`),'acknowledged rules do not repeat');
+    }
+    for(const page of ['pin-pull','screw-puzzle'])await evaluate(`MG.store.set('${page}.level',1)`);
   }
   // Dense late stages must fit too; initial-page coverage alone misses 12-tube layouts.
   for(const width of [320,390,1280]) for(const theme of ['light','dark']) {
