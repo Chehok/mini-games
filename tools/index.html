@@ -13,7 +13,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <title>진행 도구 · Mini Games</title>
-  <meta name="description" content="모임 진행 도구: 팀을 한 팀씩 공개하고, 사다리는 도착할 때 결과를 열고, 룰렛·슬롯으로 순서와 뽑기를 정해요.">
+  <meta name="description" content="모임 진행 도구: 팀을 한 팀씩 공개하고, 사다리는 이름을 눌러 연결된 결과를 확인하고, 룰렛·슬롯으로 순서와 뽑기를 정해요.">
   <meta name="color-scheme" content="light dark">
   <link rel="stylesheet" href="../assets/style.css?v=fc901d82">
   <link rel="stylesheet" href="../assets/recreation.css?v=51d33eaa">
@@ -80,6 +80,19 @@
       width: 100%; min-width: calc(var(--n, 4) * 52px);
       background: var(--surface-2); border-radius: 18px; padding: 8px 0 10px;
     }
+    .lad-board { position: relative; isolation: isolate; overflow: hidden; }
+    .lad-cover {
+      position: absolute; inset: 0; z-index: 1; border: 1px solid var(--border);
+      border-radius: 16px; background-color: var(--surface);
+      background-image: repeating-linear-gradient(135deg, transparent 0 12px, var(--surface-2) 12px 14px);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+      color: var(--muted); font-size: .9rem; pointer-events: none;
+      transition: opacity .45s ease, transform .45s ease;
+    }
+    .lad-cover b { font-size: 1.2rem; color: var(--text); }
+    .lad-cover.open { opacity: 0; transform: translateY(-24px); }
+    #ladPaths { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+    @media (prefers-reduced-motion: reduce) { .lad-cover { transition: none; } }
     .lad-cols { display: grid; grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)); }
     .lad-name {
       margin: 0 3px 8px; min-height: 48px; border: 0; border-radius: 12px;
@@ -230,11 +243,15 @@
           <div class="lad-scroll" id="ladScroll">
             <div class="lad-inner" id="ladInner">
               <div class="lad-cols" id="ladNames"></div>
-              <canvas id="ladder" width="640" height="420" aria-hidden="true"></canvas>
+              <div class="lad-board">
+                <canvas id="ladder" width="640" height="420" aria-hidden="true"></canvas>
+                <div class="lad-cover" id="ladCover" aria-hidden="true"><b>가림판</b><span>이름을 눌러 결과 확인</span></div>
+                <canvas id="ladPaths" width="640" height="420" aria-hidden="true"></canvas>
+              </div>
               <div class="lad-cols" id="ladPrizes"></div>
             </div>
           </div>
-          <p class="hint">이름을 누르면 그 사람만 내려가요. 결과는 도착하기 전까지 비밀이에요. 인원이 많으면 사다리를 옆으로 밀어 보세요.</p>
+          <p class="hint">이름을 누르면 가림판 위로 길을 따라 연결된 결과를 확인해요. 전체 공개를 누르면 가림판이 열려요. 인원이 많으면 사다리를 옆으로 밀어 보세요.</p>
           <div class="actions">
             <button class="btn" id="lAll" type="button">전체 공개</button>
             <button class="btn" id="lNew" type="button">🔀 다시 섞기</button>
@@ -368,7 +385,7 @@
   }
 
   var job = 0, timers = [], rafId = 0;
-  var spinning = false, playingAll = false, skipOrder = false;
+  var spinning = false, skipOrder = false;
   function later(fn, ms) {
     var id = setTimeout(fn, ms);
     timers.push(id);
@@ -392,7 +409,6 @@
     timers = [];
     var wasSpinning = spinning;
     spinning = false;
-    playingAll = false;
     if (activePath && activePath.frac < 1) activePath = null;
     if (wasSpinning) $('#wRes').textContent = '';
     idleControls();
@@ -602,7 +618,7 @@
   var lNames = asArray(MG.store.get('tools.ladderNames', []));
   var lRes = asArray(MG.store.get('tools.ladderRes', []));
   if (L.isDevResults(lRes)) lRes = [];
-  var ladder = null, traces = {}, activePath = null, geo = null;
+  var ladder = null, traces = {}, activePath = null, geo = null, coverOpen = false;
 
   function ladName(i) { var s = (lNames[i] || '').trim(); return s || ((i + 1) + '번'); }
   function resultLabel(i) { var s = (lRes[i] || '').trim(); return s || (i === 0 ? '당첨' : '꽝'); }
@@ -612,18 +628,17 @@
     return -1;
   }
   function syncLadderActions() {
-    var any = false, all = ln > 0, i;
-    for (i = 0; i < ln; i++) { if (traces[i]) any = true; else all = false; }
+    var any = Object.keys(traces).length > 0;
     var b = $('#lAll');
     if (!b) return;
-    if (playingAll) { b.textContent = '나머지 바로 보기'; b.disabled = false; }
-    else if (all && any) { b.textContent = '모두 공개됨'; b.disabled = true; }
-    else { b.textContent = '전체 공개'; b.disabled = false; }
+    b.textContent = coverOpen ? '모두 공개됨' : '전체 공개';
+    b.disabled = coverOpen;
     $('#lCopy').hidden = !any;
   }
   function renderLadderChrome() {
     var inner = $('#ladInner');
     inner.style.setProperty('--n', String(ln));
+    $('#ladCover').classList.toggle('open', coverOpen);
     var names = '', prizes = '', i, c, owner, oc;
     for (i = 0; i < ln; i++) {
       c = COLORS[i % COLORS.length];
@@ -632,7 +647,7 @@
       if (owner >= 0) {
         oc = COLORS[owner % COLORS.length];
         prizes += '<div class="prize on" style="--c:' + oc + '"><span class="who">' + esc(ladName(owner)) + '</span><span class="what">' + esc(resultLabel(i)) + '</span></div>';
-      } else prizes += '<div class="prize"><span class="what">?</span></div>';
+      } else prizes += '<div class="prize"><span class="what">' + esc(resultLabel(i)) + '</span></div>';
     }
     $('#ladNames').innerHTML = names;
     $('#ladPrizes').innerHTML = prizes;
@@ -776,13 +791,25 @@
         ctx.beginPath(); ctx.arc(x2, y, thick * 0.7, 0, Math.PI * 2); ctx.fill();
       }
     }
-    if (activePath) strokePath(ctx, activePath);
+    // Paths sit above the opaque cover; the underlying rungs stay concealed.
+    var overlay = $('#ladPaths');
+    overlay.style.width = '100%';
+    overlay.style.height = h + 'px';
+    overlay.width = cv.width;
+    overlay.height = cv.height;
+    var paths = overlay.getContext('2d');
+    paths.setTransform(dpr, 0, 0, dpr, 0, 0);
+    Object.keys(traces).forEach(function (i) {
+      if (activePath && +i === activePath.start) return;
+      strokePath(paths, { pts: traces[i].pts, color: COLORS[i % COLORS.length], frac: 1 });
+    });
+    if (activePath) strokePath(paths, activePath);
   }
   function finishTrace(i, traced, color, opts, id) {
     if (id && !alive(id)) return;
     opts = opts || {};
     traces[i] = traced;
-    activePath = { pts: traced.pts, color: color, frac: 1 };
+    activePath = { start: i, pts: traced.pts, color: color, frac: 1 };
     var board = $('#ladScroll');
     if (board) board.removeAttribute('data-busy');
     renderLadderChrome();
@@ -805,7 +832,7 @@
     var traced = L.trace(i, ladder.rungs, ladder.levels);
     var color = COLORS[i % COLORS.length];
     $('#ladScroll').setAttribute('data-busy', '1');
-    activePath = { pts: traced.pts, color: color, frac: prefersReduce() ? 1 : 0 };
+    activePath = { start: i, pts: traced.pts, color: color, frac: prefersReduce() ? 1 : 0 };
     if (currentTab === 'ladder') drawLadder();
     if (prefersReduce()) { finishTrace(i, traced, color, opts, id); return; }
     var start = performance.now();
@@ -829,6 +856,7 @@
     var i;
     for (i = 0; i < ln; i++) if (!traces[i]) traces[i] = L.trace(i, ladder.rungs, ladder.levels);
     activePath = null;
+    coverOpen = true;
     renderLadderChrome();
     $('#lRes').innerHTML = '';
     for (i = 0; i < ln; i++) addResultRow(i);
@@ -837,27 +865,8 @@
     syncLadderActions();
     MG.beep(740, 120, 0.05);
   }
-  function showAll() {
-    if (prefersReduce()) { revealAllNow(); return; }
-    var id = stopMotion();
-    playingAll = true;
-    syncLadderActions();
-    var i = 0;
-    function next() {
-      if (!alive(id)) return;
-      while (i < ln && traces[i]) i++;
-      if (i >= ln) {
-        playingAll = false;
-        syncLadderActions();
-        $('#lLive').textContent = '사다리 결과를 모두 공개했어요.';
-        return;
-      }
-      var idx = i++;
-      runOne(idx, { job: id, then: function () { later(function () { next(); }, 260); } });
-    }
-    next();
-  }
   function resetPath() {
+    coverOpen = false;
     traces = {};
     activePath = null;
     $('#lRes').innerHTML = '';
@@ -903,7 +912,7 @@
     if (btn && el.classList.contains('ln')) btn.textContent = ladName(i);
     if (el.classList.contains('lr')) {
       var card = $('#ladPrizes').children[i];
-      if (card && card.classList.contains('on')) {
+      if (card) {
         var what = card.querySelector('.what');
         if (what) what.textContent = resultLabel(i);
       }
@@ -938,12 +947,9 @@
   $('#lPlus').onclick = function () { setLn(ln + 1); };
   $('#lNew').onclick = function () { rebuildLadder(); MG.toast('새 사다리를 만들었어요'); };
   $('#lAll').onclick = function () {
-    if (playingAll) { revealAllNow(); return; }
-    var pending = false;
-    for (var i = 0; i < ln; i++) if (!traces[i]) pending = true;
-    if (!pending) return;
+    if (coverOpen) return;
     MG.unlockAudio();
-    showAll();
+    revealAllNow();
   };
   $('#lCopy').onclick = function () {
     var keys = Object.keys(traces).sort(function (a, b) { return (+a) - (+b); });

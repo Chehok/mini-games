@@ -87,20 +87,41 @@ function mount(folder, exports = '') {
   assert(html.includes('data-tab="tools"')); // Preserve existing hashes and saved hub.tab values.
 }
 {
-  // Run the actual ladder renderer: results must never enter hidden cards' markup.
+  // Results stay public while the middle is covered; traced paths use the upper canvas.
   const source=fs.readFileSync('tools/index.html','utf8');
-  const nodes=new Map();const $=id=>{if(!nodes.has(id)) nodes.set(id,{style:{setProperty(){}},innerHTML:''});return nodes.get(id);};
-  const context={$,COLORS:['#000'],ln:3,traces:{},esc:String,ink:()=> '#fff',ladName:i=>'참가자'+i,resultLabel:i=>'비밀'+i};
+  const nodes=new Map();const $=id=>{if(!nodes.has(id)) nodes.set(id,{style:{setProperty(){}},innerHTML:'',classList:{toggle(name,on){this[name]=on;}}});return nodes.get(id);};
+  const context={$,COLORS:['#000'],ln:3,traces:{},coverOpen:false,esc:String,ink:()=> '#fff',ladName:i=>'참가자'+i,resultLabel:i=>'결과'+i};
   context.ownerOf=col=>{for(const key of Object.keys(context.traces))if(context.traces[key].end===col)return +key;return -1;};
   vm.createContext(context);
   vm.runInContext(source.slice(source.indexOf('  function renderLadderChrome()'),source.indexOf('  function drawLadderInputs()')),context);
-  context.renderLadderChrome();assert(!$('#ladPrizes').innerHTML.includes('비밀'));
-  context.traces[0]={end:2};context.renderLadderChrome();assert($('#ladPrizes').innerHTML.includes('비밀2'));assert(!$('#ladPrizes').innerHTML.includes('비밀0'));assert(!$('#ladPrizes').innerHTML.includes('비밀1'));
-  context.traces={};context.renderLadderChrome();assert(!$('#ladPrizes').innerHTML.includes('비밀'));
+  function publicResults() {
+    for(let i=0;i<3;i++) {
+      assert($('#ladNames').innerHTML.includes('참가자'+i));
+      assert($('#ladPrizes').innerHTML.includes('결과'+i));
+    }
+    assert(!$('#ladPrizes').innerHTML.includes('?'));
+  }
+  context.renderLadderChrome();publicResults();assert.equal($('#ladCover').classList.open,false);
+  context.traces[0]={end:2};context.renderLadderChrome();publicResults();assert.match($('#ladPrizes').innerHTML,/prize on/);
+  assert.equal($('#ladCover').classList.open,false);
+  const drawn=[];
+  const canvasContext={setTransform(){},clearRect(){},beginPath(){},moveTo(){},lineTo(){},stroke(){},arc(){},fill(){}};
+  $('#ladder').clientWidth=300;$('#ladder').getContext=()=>canvasContext;
+  const overlayContext={setTransform(){}};$('#ladPaths').getContext=()=>overlayContext;
+  Object.assign(context,{window:{devicePixelRatio:2},css:()=> '#fff',ladder:{levels:1,rungs:[[true,false]]},activePath:{frac:.5},strokePath:(ctx,path)=>{assert.equal(ctx,overlayContext);drawn.push(path);}});
+  vm.runInContext(source.slice(source.indexOf('  function drawLadder()'),source.indexOf('  function finishTrace(')),context);
+  context.drawLadder();assert.equal(drawn.length,2);assert.equal(drawn[0].frac,1);assert.equal(drawn[1].frac,.5);
+  assert.equal($('#ladPaths').width,$('#ladder').width);
+  context.activePath.start=0;drawn.length=0;context.drawLadder();assert.equal(drawn.length,1);assert.equal(drawn[0].frac,.5); // Replay must animate above the cover too.
+  let builds=0;
+  Object.assign(context,{stopMotion(){},L:{trace:i=>({end:(i+2)%3,pts:[]}),buildLadder:()=>{builds++;return {levels:1,rungs:[[false,true]]};}},addResultRow(){},syncLadderActions(){},currentTab:'ladder',MG:{beep(){}},drawLadder(){}});
+  vm.runInContext(source.slice(source.indexOf('  function revealAllNow()'),source.indexOf('  function setLn(')),context);
+  context.revealAllNow();publicResults();assert.equal($('#ladCover').classList.open,true);assert.equal(Object.keys(context.traces).length,3);assert.equal(context.activePath,null);
+  context.rebuildLadder();publicResults();assert.equal(builds,1);assert.equal($('#ladCover').classList.open,false);assert.equal(Object.keys(context.traces).length,0);assert.equal($('#lRes').hidden,true);
   const spin=source.slice(source.indexOf("  $('#spin').onclick ="),source.indexOf("  $('#spin').onclick =")+500);
   const end=spin.indexOf('    MG.unlockAudio();');
   const alerts=[];const button={},input={value:'하나\n\n'};
   const wheel={$:id=>id==='#spin'?button:input,spinning:false,L:{parseList:s=>s.split('\n').map(s=>s.trim()).filter(Boolean)},MG:{toast:s=>alerts.push(s)}};
   vm.runInNewContext(spin.slice(0,end)+'};',wheel);button.onclick();assert.equal(alerts.length,1);
 }
-console.log('PASS: recreation controllers — UP/DOWN bounds/reveal/restart, timer deadlines and scores, row add/remove/Enter/save, brackets with 2–64 players and duplicate names');
+console.log('PASS: recreation controllers — UP/DOWN bounds/reveal/restart, timer deadlines and scores, row add/remove/Enter/save, public ladder results/cover/overlay paths/reveal/reshuffle, brackets with 2–64 players and duplicate names');
