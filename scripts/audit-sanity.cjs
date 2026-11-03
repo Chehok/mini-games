@@ -185,17 +185,35 @@ for(let level=1;level<=Park.designs.length;level++) {
     const out=[];s.forEach((c,i)=>{if(c&&Park.canExit(s,i)){const n=s.slice();n[i]=null;out.push(n);}});return out;
   }), 'parking '+level+' BFS solvable');
 }
-// Hand-authored level contracts: no duplicate geometry and every first mechanic
-// has a Korean introduction. Geometry signatures ignore names, hints and colors.
+// Compare actual geometry, ignoring names, hints, colors, materials and mechanics.
+// Pairwise tolerances also catch tiny shifts that evade an exact hash/grid boundary.
 const {createHash}=require('node:crypto');
-const {solveScrew}=require('./puzzle-solvers.cjs');
+const {solveScrew,solvePin}=require('./puzzle-solvers.cjs');
 function signature(value){return createHash('sha256').update(JSON.stringify(value)).digest('hex');}
-function introductions(L){const seen=new Set();for(let n=1;n<=L.designs.length;n++){const d=L.level(n);assert(d.mechanics.length);for(const m of d.mechanics){if(!seen.has(m))assert(d.hint&&/[가-힣]/.test(d.hint),`${n}: ${m} needs a first-use hint`);seen.add(m);}}}
+function introductions(L){for(let n=1;n<=L.designs.length;n++){const d=L.level(n);assert(d.mechanics.length);assert(d.hint&&/[가-힣]/.test(d.hint),`${n}: Korean level strategy`);assert.equal(new Set(d.mechanics).size,d.mechanics.length);for(const m of d.mechanics)assert(L.mechanicHints[m]&&/[가-힣]/.test(L.mechanicHints[m]),`${n}: ${m} needs a per-mechanic Korean introduction`);}}
+const close=(a,b,tolerance)=>a.length===b.length&&a.every((n,i)=>Math.abs(n-b[i])<=tolerance);
+const sameSet=(a,b,near)=>a.length===b.length&&a.every(x=>b.some(y=>near(x,y)))&&b.every(y=>a.some(x=>near(x,y)));
+function nearPin(a,b){
+  const nearSeg=(a,b)=>close([a.x1,a.y1,a.x2,a.y2],[b.x1,b.y1,b.x2,b.y2],22)||close([a.x1,a.y1,a.x2,a.y2],[b.x2,b.y2,b.x1,b.y1],22);
+  return sameSet(a.walls,b.walls,nearSeg)&&sameSet(a.pins,b.pins,nearSeg)&&sameSet(a.cups,b.cups,(a,b)=>close([a.x1,a.x2,a.y],[b.x1,b.x2,b.y],22));
+}
+function nearScrew(a,b){return a.plates.length===b.plates.length&&a.plates.every((q,p)=>{
+  const r=b.plates[p];return q.shape===r.shape&&close([q.x,q.y,q.w,q.h],[r.x,r.y,r.w,r.h],6)&&Math.abs(q.angle-r.angle)<=12&&sameSet(q.screws,r.screws,(a,b)=>close([a.x,a.y],[b.x,b.y],.12));
+});}
+for(const [L,near] of [[Pin,nearPin],[Screw,nearScrew]]){
+  for(let n=1;n<=L.designs.length;n++)for(let m=1;m<n;m++)assert(!near(L.level(n),L.level(m)),`${n} and ${m}: nearly identical geometry`);
+  const original=L.level(1),renamed=JSON.parse(JSON.stringify(original));renamed.name='다른 이름';renamed.mechanics=[];
+  if(renamed.plates)renamed.plates.forEach(q=>{q.x+=1;q.angle+=1;q.colors=q.colors.map(c=>(c+1)%6);q.screws.forEach(s=>{s.x+=.01;});});
+  else {for(const s of [...renamed.walls,...renamed.pins]){s.x1+=2;s.x2+=2;}renamed.particles=[];}
+  assert(near(original,renamed),'renaming, recoloring or tiny shifts cannot disguise a repeated layout');
+}
 introductions(Screw);introductions(Pin);
 assert.equal(Screw.designs.length,20,'20 explicit screw boards');
 const screwSignatures=new Set();let crossedLayerSolutions=0,hingeCoverageChanges=0;
 for(let level=1;level<=Screw.designs.length;level++) {
   const data=Screw.level(level),initial=Screw.initial(data),before=JSON.stringify(initial);
+  assert(data.palette.length&&data.palette.every(c=>Number.isInteger(c)&&c>=0&&c<6),'authored plate colors');
+  assert(data.materials.length&&data.materials.every(m=>['wood','metal','acrylic'].includes(m)),'authored plate materials');
   const geometry=data.plates.map(q=>({shape:q.shape,x:q.x,y:q.y,w:q.w,h:q.h,angle:q.angle,screws:q.screws.map(s=>[s.x,s.y])}));
   const sig=signature(geometry);assert(!screwSignatures.has(sig),'unique screw layout '+level);screwSignatures.add(sig);
   const colors=data.plates.flatMap(q=>q.colors),counts=new Map();colors.forEach(c=>counts.set(c,(counts.get(c)||0)+1));
@@ -206,7 +224,12 @@ for(let level=1;level<=Screw.designs.length;level++) {
     assert(Screw.covers(q,...Object.values(Screw.worldPoint(q,spot)),0),'screw belongs to the plate silhouette');
     if(!Screw.available(data,initial,p,s)){covered++;assert.equal(Screw.remove(data,initial,p,s),null,'covered/locked screws reject input');}
     if(spot.lock){assert(data.plates[spot.lock.p]?.screws[spot.lock.s],'lock reference exists');assert(Screw.locked(data,initial,p,s));}
+    if(spot.lock)assert(data.mechanics.includes(spot.lock.type),'actual lock has a matching introduction');
   });});
+  if(data.plates.some(q=>q.hinge))assert(data.mechanics.includes('hinge'));
+  if(data.plates.filter(q=>q.hinge).length>1)assert(data.mechanics.includes('doubleHinge'));
+  if(data.plates.some(q=>q.screws.length===4))assert(data.mechanics.includes('four'));
+  if(data.plates.some(q=>q.shape==='cross'))assert(data.mechanics.includes('cross'));
   assert(covered,'each board contains actual overlap/locks');assert.equal(JSON.stringify(initial),before,'rejected taps preserve state');
   const solution=solveScrew(Screw,data,state=>{
     if(state.failed)return;
@@ -258,6 +281,11 @@ for(let level=1;level<=Pin.designs.length;level++){
   assert.equal(new Set(data.order).size,data.order.length,'solution never pulls a pin twice');
   assert(data.order.every(i=>data.pins[i]),'solution references real pins');
   assert(data.particles.every(p=>p.x>0&&p.x<360&&p.y>0&&p.y<data.height),'particles start on the board');
+  const handles=data.pins.map(p=>{const dx=p.x2-p.x1,dy=p.y2-p.y1,len=Math.hypot(dx,dy);return {x:Math.max(28,Math.min(332,p.x1-dx/len*24)),y:Math.max(28,Math.min(data.height-28,p.y1-dy/len*24))};});
+  handles.forEach((a,i)=>handles.slice(0,i).forEach(b=>assert(Math.hypot(a.x-b.x,a.y-b.y)*296/360>=44,'44px pin targets do not overlap on a 320px phone')));
+  for(const pin of data.pins)assert(data.mechanics.includes(pin.x1===pin.x2?'vertical':pin.y1===pin.y2?'horizontal':'diagonal'),'actual pin direction has an introduction');
+  const found=solvePin(Pin,data);assert(found,`pin ${level}: search independently finds a physical solution`);
+  assert(Pin.solved(data,Pin.simulate(data,found)),'searched pin solution replays');
   const state=Pin.simulate(data,data.order);
   assert(Pin.solved(data,state),`pin ${level} physical simulation wins (${state.collected}/${data.target}): ${state.reason}`);
   assert.equal(state.collected,data.total);assert.equal(state.lost,0);
@@ -266,7 +294,7 @@ for(let level=1;level<=Pin.designs.length;level++){
   assert(state.balls.filter(b=>b.status==='cup').every(b=>b.kind==='gem'),'all gray gems converted before collection');
   assert(data.cups.every((c,i)=>state.cups[i]===c.quota),'each cup receives its own quota');
   assert.equal(JSON.stringify(Pin.simulate(data,data.order)),JSON.stringify(state),'deterministic fixed-step replay');
-  if(data.mechanics.some(m=>['mud','lock','trick'].includes(m)))assert(data.wrong.length,'mud/lock/trick has an authored wrong order');
+  if(data.mechanics.some(m=>['mud','stone','lock','trick','paint'].includes(m)))assert(data.wrong.length,'hazards/paint/lock/trick have an authored wrong order');
   for(const order of data.wrong){const bad=Pin.simulate(data,order);assert(!Pin.solved(data,bad),`pin ${level}: designed wrong order ${order} cannot win`);wrongOrders++;assert(bad.failed||data.pins.some((p,i)=>p.lock&&!bad.open[i]),'wrong order causes physical failure or leaves a locked pin closed');}
   for(const [i,pin] of data.pins.entries())if(pin.lock){const locked=Pin.initial(data);assert(Pin.locked(data,locked,i));assert.equal(Pin.pull(data,locked,i),false,'locked pin rejects early tap');assert(!locked.open[i]);}
 }
@@ -286,7 +314,7 @@ assert.equal(U.generate(1,rnd).nodes.length,4,'untangle tutorial starts with fou
 assert(U.clear([U.generate(1,rnd).solution[0],...U.generate(1,rnd).nodes.slice(1)],U.generate(1,rnd).edges),'one peg solves the untangle tutorial');
 assert.equal(W.generate(25,rnd).colors,10,'water grows to ten colors');
 assert.equal(W.generate(9999,rnd).colors,10,'water remains bounded');
-console.log(`PASS: water small-case BFS + ${waterWitnesses} reverse-shuffle solution witnesses (2–10 colors); ${Park.designs.length} parking BFS, ${Screw.designs.length} screw searches + blocked taps/conservation; ${Pin.designs.length} deterministic physical pin solutions + cup piles/side bins, ${wrongOrders} authored wrong-order failures + locks/paint/cup quotas/rapid-pull/lost-gem checks; ${untangleWitnesses} planar untangle solutions (through level 9,999)`);
+console.log(`PASS: water small-case BFS + ${waterWitnesses} reverse-shuffle solution witnesses (2–10 colors); ${Park.designs.length} parking BFS; ${Screw.designs.length} screw + ${Pin.designs.length} independent physical pin searches; exact/near layout comparisons + per-mechanic hints + separated pin targets; screw locks/conservation/hinges/budgets; pin deterministic replay/cup piles/side bins + ${wrongOrders} wrong-order failures + locks/paint/cup quotas/rapid-pull/lost-gem checks; ${untangleWitnesses} planar untangle solutions (through level 9,999)`);
 
 // Run real controllers with a small DOM/RAF harness. This checks resets during async
 // pours/flights/driving and progress persistence without pretending to be a browser.

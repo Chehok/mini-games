@@ -7,7 +7,7 @@
     let level=Number.isFinite(saved)?Math.max(1,Math.min(maxLevel||9999,Math.floor(saved))):1;
     const unlocked=Number(MG.store.get(key+'.unlocked',level));
     let reached=Math.max(level,Number.isFinite(unlocked)?Math.max(1,Math.min(maxLevel||9999,Math.floor(unlocked))):level),moves=0,over=false,start,epoch=0;
-    let sound=false; // Sound always starts OFF; never unlock audio without an explicit gesture.
+    let sound=false,hintBanner,hintText,hintNext; // Sound always starts OFF; never unlock audio without an explicit gesture.
     const motion=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
     const settings=document.createElement('div');settings.className='puzzle-settings';
     const label=document.createElement('label');label.textContent='단계 선택 ';
@@ -47,6 +47,21 @@
       get epoch(){return epoch;},get level(){return level;},get over(){return over;},get moves(){return moves;},
       say(text){if($('status').textContent!==text)$('status').textContent=text;},
       feedback,
+      introduce(data,hints){
+        if(!hintBanner){
+          hintBanner=document.createElement('div');hintBanner.className='mechanic-hint';hintBanner.setAttribute('role','note');
+          hintText=document.createElement('span');hintText.className='mechanic-text';hintText.setAttribute('aria-live','polite');hintBanner.appendChild(hintText);
+          hintNext=document.createElement('button');hintNext.type='button';hintNext.className='mechanic-next';hintBanner.appendChild(hintNext);$('instructions').after(hintBanner);
+        }
+        const pending=data.mechanics.filter(m=>hints[m]&&!MG.store.get(key+'.hint.'+m,false));
+        function show(){
+          const mechanic=pending.shift();hintBanner.hidden=!mechanic;
+          hintText.textContent=mechanic?'💡 '+hints[mechanic]:'';
+          hintNext.textContent=pending.length?'다음 안내':'알겠어요';
+          if(mechanic)MG.store.set(key+'.hint.'+mechanic,true);
+        }
+        hintNext.onclick=()=>{show();if(hintBanner.hidden)$('restart').focus();};show();
+      },
       move(){ $('moves').textContent=++moves;feedback('move'); },
       async animate(el,frames,options){
         if(motion()||!el.animate)return;

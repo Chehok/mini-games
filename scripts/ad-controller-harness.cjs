@@ -1,8 +1,9 @@
 // Minimal DOM/RAF harness; no CSS layout or browser rendering is simulated.
 const fs=require('node:fs'),vm=require('node:vm');
 const read=p=>fs.readFileSync(require('node:path').join(__dirname,'..',p),'utf8');
-function adController(dir,level=1,{reduced=true,unlocked=level,width=320,dark=false}={}) {
-  let sequence=0,now=1000;const frames=new Map(),saved=new Map([[dir+'.level',level],[dir+'.unlocked',unlocked]]),animations=[];
+function adController(dir,level=1,{reduced=true,unlocked=level,width=320,dark=false,saved=new Map()}={}) {
+  let sequence=0,now=1000,draws=0;const frames=new Map(),animations=[],observers=new Set();
+  saved.set(dir+'.level',level);saved.set(dir+'.unlocked',unlocked);
   class Element {
     constructor(tag='div') {this.tagName=tag;this.children=[];this.parentNode=null;this.dataset={};this.attributes={};this.listeners={};this.style={setProperty(k,v){this[k]=v;}};this._class='';this.textContent='';this.disabled=false;this.hidden=false;this.clientWidth=Math.min(360,width-24);this.clientHeight=444;}
     set className(value){this._class=value;}get className(){return this._class;}
@@ -33,14 +34,18 @@ function adController(dir,level=1,{reduced=true,unlocked=level,width=320,dark=fa
       const visit=el=>{for(const c of el.children){if(match(c,parts.at(-1))){if(parts.length===1)out.push(c);else {let p=c.parentNode;while(p&&p!==this){if(match(p,parts[0])){out.push(c);break;}p=p.parentNode;}}}visit(c);}};visit(this);return out;
     }
     querySelector(s){return this.querySelectorAll(s)[0]||null;}
-    getContext(){const gradient=()=>({addColorStop(){}});return new Proxy({createLinearGradient:gradient,createRadialGradient:gradient},{get:(t,k)=>t[k]||(()=>{}),set:(t,k,v)=>(t[k]=v,true)});}
+    getContext(){const gradient=()=>({addColorStop(){}});return new Proxy({clearRect(){draws++;},createLinearGradient:gradient,createRadialGradient:gradient},{get:(t,k)=>t[k]||(()=>{}),set:(t,k,v)=>(t[k]=v,true)});}
   }
   const body=new Element('body'),main=new Element('main');body.appendChild(main);
   const ids=new Map();for(const id of ['level','moves','instructions','scene-meter','board','status','extras','restart','next']){const el=new Element(['restart','next'].includes(id)?'button':'div');el.id=id;main.appendChild(el);ids.set(id,el);}
   const document={body,activeElement:null,getElementById:id=>ids.get(id),createElement:tag=>new Element(tag),createElementNS:(_,tag)=>new Element(tag),querySelectorAll:s=>body.querySelectorAll(s)};
-  const window={devicePixelRatio:2,innerWidth:width,addEventListener(){}};
+  const window={devicePixelRatio:2,innerWidth:width,addEventListener(){},ResizeObserver:class{
+    constructor(callback){this.callback=callback;}
+    observe(target){this.target=target;observers.add(this);}
+    disconnect(){observers.delete(this);}
+  }};
   const context={document,window,console,setTimeout:()=>0,matchMedia:q=>({matches:q.includes('reduced-motion')?reduced:dark,addEventListener(){}}),getComputedStyle:()=>({getPropertyValue:k=>({'--surface-2':'#f7f8fb','--text':'#171923','--muted':'#606579'}[k]||'')}),requestAnimationFrame:fn=>{frames.set(++sequence,fn);return sequence;},cancelAnimationFrame:id=>frames.delete(id),MG:{store:{get:(k,f)=>saved.has(k)?saved.get(k):f,set:(k,v)=>saved.set(k,v)},rng:L=>{let a=L;return ()=>{a=(Math.imul(a,1664525)+1013904223)>>>0;return a/4294967296;};},vibrate(){},beep(){},unlockAudio(){}}};
   for(const file of ['assets/ad-puzzles.js',dir+'/logic.js',dir+'/game.js']){vm.runInNewContext(read(file),context,{filename:file});Object.assign(context,window);}
-  return {ids,body,saved,window,animations,finishAnimations(){animations.splice(0).forEach(a=>a.finish());},press:id=>ids.get(id).click(),all:s=>body.querySelectorAll(s),ticks(n){for(let i=0;i<n;i++){const due=[...frames];frames.clear();due.forEach(([,fn])=>fn(now+=1000/60));}}};
+  return {ids,body,saved,window,animations,get draws(){return draws;},get pendingFrames(){return frames.size;},get observerCount(){return observers.size;},resizeBoard(width){for(const o of observers){o.target.clientWidth=width;o.callback();}},finishAnimations(){animations.splice(0).forEach(a=>a.finish());},press:id=>ids.get(id).click(),all:s=>body.querySelectorAll(s),ticks(n){for(let i=0;i<n;i++){const due=[...frames];frames.clear();due.forEach(([,fn])=>fn(now+=1000/60));}}};
 }
 module.exports={adController};

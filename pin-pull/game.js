@@ -1,9 +1,18 @@
 (function () {
   'use strict';
   const L=PinLogic,P=AdPuzzle('pin-pull',L.designs.length),W=360;
-  const banner=document.createElement('p');banner.className='mechanic-hint';banner.setAttribute('role','note');P.$('instructions').after(banner);
   const gems=[['#bbfff4','#19d8c3','#078c9b'],['#d4efff','#52a3ff','#3958cb'],['#ffe0f7','#f46ac5','#b6379a'],['#fff3b3','#ffc94e','#e98724']];
-  let data,state,canvas,ctx,buttons,meter,frame=0,last=0,acc=0,run,dirty=true,calm=0,lastCount=-1,dark=false,drainAnnounced=false,endedAt=null;
+  const themes={
+    lagoon:['#e3e9ff','#daf4f7','#c0e8d6','#20374b','#214a55','#193b3e'],
+    sunrise:['#ffe6cf','#fff0d7','#f4cfd5','#493447','#4a3c48','#41303e'],
+    glacier:['#dceaff','#e6faff','#c3dbea','#233349','#294653','#243d51'],
+    clay:['#f9e4c8','#ecedd1','#cadcd0','#403349','#44473b','#2b443f'],
+    twilight:['#e9ddff','#dee6ff','#d5daf3','#302b50','#333f62','#273651'],
+    orchid:['#ffe0f1','#f2e2ff','#d7e7fa','#472b4f','#45335c','#2c3b56'],
+    slate:['#dee5eb','#e5eee9','#c8dcda','#273543','#33454d','#263b3d'],
+    lemon:['#fff1bb','#f0f6d4','#c9eee0','#45402c','#3e4938','#28443c']
+  };
+  let data,state,canvas,ctx,buttons,meter,observer,frame=0,last=0,acc=0,run,dirty=true,calm=0,lastCount=-1,dark=false,drainAnnounced=false,endedAt=null;
   function line(x1,y1,x2,y2,color,width){ctx.strokeStyle=color;ctx.lineWidth=width;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();}
   function rounded(x,y,w,h,r,fill){ctx.fillStyle=fill;ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fill();}
   function gradient(x1,y1,x2,y2,stops){const g=ctx.createLinearGradient(x1,y1,x2,y2);stops.forEach(([t,c])=>g.addColorStop(t,c));return g;}
@@ -39,7 +48,8 @@
   }
   function draw(){
     const H=data.height,reduced=P.motion();ctx.clearRect(0,0,W,H);
-    rounded(0,0,W,H,20,gradient(0,0,W,H,[[0,dark?'#202b49':'#e3e9ff'],[.5,dark?'#214054':'#daf4f7'],[1,dark?'#1d3e3a':'#c0e8d6']]));
+    const colors=themes[data.theme],offset=dark?3:0;
+    rounded(0,0,W,H,20,gradient(0,0,W,H,[[0,colors[offset]],[.5,colors[offset+1]],[1,colors[offset+2]]]));
     ctx.save();ctx.globalAlpha=dark?.08:.2;
     for(let y=12;y<H;y+=30)for(let x=14;x<W;x+=30)polygon([[x,y-3],[x+3,y],[x,y+3],[x-3,y]],'#8f9fc6');ctx.restore();
     circle(180,130,130,radial(180,130,130,[[0,dark?'#74b6de22':'#ffffffcc'],[1,'#ffffff00']]));
@@ -70,7 +80,7 @@
     for(const b of state.balls){
       if(b.status==='out'||b.status==='key')continue;
       if(b.kind==='gem'||b.kind==='gray'){
-        const age=b.caughtAt===undefined?10:state.time-b.caughtAt,pop=!reduced&&age<.3?1+Math.sin(age/.3*Math.PI)*.24:1;gem(b.x,b.y,b.id,L.R*pop,b.kind==='gray');
+        const age=state.time-Math.max(b.caughtAt??-10,b.paintedAt??-10),pop=!reduced&&age<.3?1+Math.sin(age/.3*Math.PI)*.24:1;gem(b.x,b.y,b.id,L.R*pop,b.kind==='gray');
       }else if(b.kind==='stone'){
         circle(b.x,b.y+2,20,'#34475c');circle(b.x,b.y,20,radial(b.x,b.y,20,[[0,'#dce6ef'],[.4,'#99aabd'],[1,'#53677e']]));line(b.x-9,b.y-9,b.x-2,b.y-12,'#eff8ff',3);text('●',b.x,b.y+6,14,'#52657a');
       }else if(b.kind==='key'){circle(b.x,b.y,10,'#ffdf75');text('🗝',b.x,b.y+5,17,'#795016');}
@@ -84,12 +94,12 @@
       rounded(mid-31,c.y+38,62,22,11,'#143d6ae8');text(state.cups[i]+' / '+c.quota+' ◆',mid,c.y+53,11,'#fff6bf');
     });
     if(!reduced)for(const b of state.balls){
-      if(b.caughtAt===undefined)continue;const age=state.time-b.caughtAt;if(age<0||age>.6)continue;
+      const age=state.time-Math.max(b.caughtAt??-10,b.paintedAt??-10);if(age<0||age>.6)continue;
       for(let k=0;k<5;k++){const a=k*Math.PI*2/5+b.id,s=12+age*55;sparkle(b.x+Math.cos(a)*s,b.y+Math.sin(a)*s-age*25,4*(1-age/.6),1-age/.6);}
     }
     const mudCount=data.particles.filter(b=>b.kind==='mud').length;
     if(mudCount)text('≋ 진흙 '+state.drained+' / '+mudCount+' 비움',180,H-10,10,dark?'#d6ecf3':'#37596a');
-    if(P.level===1&&P.moves===0){const h=handle(data.pins[0]),pulse=reduced?0:Math.sin(state.time*4)*4;text('👆',h.x+3,h.y+49+pulse,27,'#fff');}
+    if(P.level===1&&P.moves===0){const h=handle(data.pins[0]),pulse=reduced||state.time>=5?0:Math.sin(state.time*4)*4;text('👆',h.x+3,h.y+49+pulse,27,'#fff');}
     buttons.forEach((b,i)=>{
       const pin=data.pins[i],dx=pin.x2-pin.x1,dy=pin.y2-pin.y1,len=Math.hypot(dx,dy),slide=L.ease(state.slide[i]),shift=slide*(len+42),scale=canvas.clientWidth/W;
       b.style.opacity=1-slide;b.style.transform='translate(-50%,-50%) translate('+(-dx/len*shift*scale)+'px,'+(-dy/len*shift*scale)+'px)';b.hidden=slide>=1||reduced&&state.open[i];b.setAttribute('aria-disabled',String(L.locked(data,state,i)));
@@ -107,8 +117,8 @@
     frame=0;if(run!==P.epoch)return;
     const delta=last?Math.min(.06,(now-last)/1000):L.DT;last=now;acc+=delta;
     while(acc>=L.DT){L.step(data,state);acc-=L.DT;}
-    const moving=state.balls.some(b=>b.status!=='out'&&(Math.abs(b.vx)>6||Math.abs(b.vy)>12||b.caughtAt!==undefined&&state.time-b.caughtAt<1))||state.open.some((v,i)=>v&&state.slide[i]<1);
-    const hint=P.level===1&&P.moves===0&&!P.motion();calm=moving?0:calm+delta;
+    const moving=state.balls.some(b=>(b.status==='active'||b.status==='cup')&&(Math.abs(b.vx)>6||Math.abs(b.vy)>12||b.caughtAt!==undefined&&state.time-b.caughtAt<1))||state.open.some((v,i)=>v&&state.slide[i]<1);
+    const hint=P.level===1&&P.moves===0&&!P.motion()&&state.time<5;calm=moving?0:calm+delta;
     if(dirty||moving||hint||calm<.3){draw();dirty=false;}
     if(state.collected!==lastCount){lastCount=state.collected;meter.textContent=data.name+' · ◆ '+state.collected+' / '+data.target;}
     if(!P.over&&!drainAnnounced&&data.mechanics.includes('mud')&&state.drained===data.particles.filter(b=>b.kind==='mud').length){drainAnnounced=true;P.say('진흙을 모두 비웠어요! 보석이 지나갈 길을 준비해 주세요.');P.feedback('move');}
@@ -119,16 +129,17 @@
   function act(i){
     if(P.over)return;if(L.locked(data,state,i)){P.feedback('error');P.say('🔒 열쇠 '+data.pins[i].lock+'를 먼저 찾아 주세요.');return;}if(!L.pull(data,state,i))return;
     P.move();buttons[i].disabled=true;buttons[i].style.pointerEvents='none';dirty=true;calm=0;last=0;wake();
-    P.say(data.pins[i].kind==='drain'?'진흙이 옆 통으로 흐르고 있어요. 잠깐 기다려 주세요.':'보석이 굴러가요! 길을 살펴보고 다음 핀을 골라 주세요.');
+    P.say(data.pins[i].kind==='drain'?(data.mechanics.includes('mud')?'진흙이 옆 통으로 흐르고 있어요. 잠깐 기다려 주세요.':'돌이 옆 주머니로 굴러가요. 길이 비면 다음 핀을 열어요.'):'보석이 굴러가요! 길을 살펴보고 다음 핀을 골라 주세요.');
     const next=buttons.find(b=>!b.disabled);if(next)next.focus();else P.$('restart').focus();
   }
   window.addEventListener('resize',resize);
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change',resize);
   P.mount(()=>{
+    if(observer)observer.disconnect();
     cancelAnimationFrame(frame);frame=0;last=0;acc=0;calm=0;lastCount=-1;drainAnnounced=false;endedAt=null;run=P.epoch;data=L.level(P.level);state=L.initial(data);
-    P.$('instructions').textContent=data.cups.length>1?'모든 컵의 보석 수를 채워 주세요':'색 보석 '+data.target+'개를 컵에 모으세요';
-    banner.textContent=data.hint?'💡 '+data.hint:'';banner.hidden=!data.hint;
-    P.say(data.name+' · 길을 살펴보고 핀을 골라 주세요.');
+    P.$('instructions').textContent=data.cups.length>1?'모든 컵의 보석 수를 채워 주세요.':'색 보석 '+data.target+'개를 컵에 모아 주세요.';
+    P.introduce(data,L.mechanicHints);
+    P.say(data.name+' · '+data.hint);
     const board=P.$('board');board.className='puzzle-board pin-board';board.style.aspectRatio=W+' / '+data.height;
     canvas=document.createElement('canvas');canvas.setAttribute('aria-hidden','true');board.appendChild(canvas);ctx=canvas.getContext('2d');
     const canvasRun=P.epoch;let touched=null;
@@ -150,5 +161,6 @@
       let point=null;b.addEventListener('pointerdown',e=>{point={x:e.clientX,y:e.clientY};b.setPointerCapture(e.pointerId);});
       b.addEventListener('pointerup',e=>{if(buttonRun===P.epoch&&point&&Math.hypot(e.clientX-point.x,e.clientY-point.y)>18)act(i);point=null;});b.addEventListener('pointercancel',()=>{point=null;});return b;
     });resize();
+    if(window.ResizeObserver){observer=new window.ResizeObserver(resize);observer.observe(canvas);}
   });
 })();

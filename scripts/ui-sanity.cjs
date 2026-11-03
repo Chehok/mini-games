@@ -53,7 +53,7 @@ function contrast(fg, bg) {
     const msg = JSON.parse(event.data);
     if (msg.id) { const p=pending.get(msg.id); pending.delete(msg.id); msg.error?p.reject(msg.error):p.resolve(msg.result); }
     else if (msg.method==='Runtime.exceptionThrown') errors.push(msg.params.exceptionDetails);
-    else if (msg.method==='Log.entryAdded' && msg.params.entry.level==='error' && !/gc\.zgo\.at/.test(msg.params.entry.url||msg.params.entry.text||'')) errors.push(msg.params.entry);
+    else if (msg.method==='Log.entryAdded' && msg.params.entry.level==='error' && !/(gc\.zgo\.at|goatcounter\.com)/.test(msg.params.entry.url||msg.params.entry.text||'')) errors.push(msg.params.entry);
   });
   await cdp('Page.enable'); await cdp('Runtime.enable'); await cdp('Log.enable');
   const base='http://127.0.0.1:' + server.address().port + '/mini-games/';
@@ -143,6 +143,29 @@ function contrast(fg, bg) {
         fs.writeFileSync(path.join(profile,`wordle-${width}-${theme}.png`),Buffer.from(png.data,'base64'));
       }
     }
+  }
+  // Every handcrafted board, with a fresh hint and again after acknowledgment.
+  // Keep actual browser coverage separate from the Node DOM configurations.
+  for(const width of [390,1280])for(const theme of ['light','dark']){
+    await cdp('Emulation.setDeviceMetricsOverride',{width,height:width===390?844:900,deviceScaleFactor:2,mobile:false});
+    await cdp('Emulation.setEmulatedMedia',{features:[{name:'prefers-color-scheme',value:theme},{name:'prefers-reduced-motion',value:'reduce'}]});
+    for(const page of ['pin-pull','screw-puzzle'])for(let n=1;n<=20;n++){
+      await loaded(base+page+'/');
+      await evaluate(`(()=>{const L=${page==='pin-pull'?'PinLogic':'ScrewLogic'};for(const m of Object.keys(L.mechanicHints))MG.store.set('${page}.hint.'+m,false);MG.store.set('${page}.level',${n});})()`);
+      await loaded(base+page+'/');
+      for(const hints of ['new','seen']){
+        assert(await evaluate('document.documentElement.scrollWidth<=innerWidth'),`${page} ${n}: ${hints} hint overflow ${width} ${theme}`);
+        if(width===390)assert(await evaluate(`document.querySelector('#next').getBoundingClientRect().bottom<=innerHeight`),`${page} ${n}: ${hints} hint actions fit 390×844`);
+        if(hints==='new'&&width===390){
+          const png=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+          fs.writeFileSync(path.join(profile,`${page}-${n}-${theme}.png`),Buffer.from(png.data,'base64'));
+        }
+        await evaluate(`(()=>{let guard=30;while(!document.querySelector('.mechanic-hint').hidden&&guard--)document.querySelector('.mechanic-next').click();})()`);
+      }
+      await evaluate(`document.querySelector('#restart').click()`);
+      assert(await evaluate(`document.querySelector('.mechanic-hint').hidden`),'acknowledged rules do not repeat');
+    }
+    for(const page of ['pin-pull','screw-puzzle'])await evaluate(`MG.store.set('${page}.level',1)`);
   }
   // Dense late stages must fit too; initial-page coverage alone misses 12-tube layouts.
   for(const width of [320,390,1280]) for(const theme of ['light','dark']) {

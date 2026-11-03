@@ -2,8 +2,7 @@
   'use strict';
   const L=ScrewLogic,P=AdPuzzle('screw-puzzle',L.designs.length),symbols=P.symbols;
   let data,state,history,undo,busy=false;
-  const banner=document.createElement('p');banner.className='mechanic-hint';banner.setAttribute('role','note');P.$('instructions').after(banner);
-  P.$('instructions').textContent='같은 기호 나사 3개씩 모으세요';
+  P.$('instructions').textContent='같은 기호 나사를 3개씩 모아 주세요.';
   const rack=document.createElement('div');rack.id='boxes';rack.className='screw-rack';rack.setAttribute('aria-label','수집 공구함 두 개와 임시 칸 세 개');P.$('board').before(rack);
   function makeRack(incoming=[]){
     rack.replaceChildren();rack.setAttribute('aria-label','수집 공구함과 임시 칸 '+data.buffer+'곳');
@@ -83,26 +82,27 @@
       {transform:'scale(1)',opacity:1},{transform:'scale(1.08)',opacity:1,offset:.35},{transform:'translateX(60px) scale(.94)',opacity:0}
     ],{duration:420,fill:'forwards'})));
     if(run!==P.epoch)return;
-    history.push(old);state=next;busy=false;P.move();render(p*4+s,outgoing);
+    history.push(old);state=next;busy=false;P.move();render(p*4+s,outgoing,old);
     P.say('남은 판 '+data.plates.filter((_,p)=>!L.done(data,state,p)).length+'개 · 임시 칸 '+state.tray.length+'/'+data.buffer+'. 다음 공구함도 살펴 주세요.');
-    if(L.solved(data,state))P.win();
+    if(L.solved(data,state))P.win();else if(L.stuck(data,state))P.fail('임시 칸이 차서 더 풀 수 있는 나사가 없어요. 공구함 순서를 살펴 주세요.');
   }
-  function render(focus,incoming=[]){
+  function render(focus,incoming=[],previous){
     const board=P.$('board');board.className='puzzle-board screw-board';board.replaceChildren();makeRack(incoming);
-    const scene=document.createElement('span');scene.className='workbench-label';scene.textContent='보석 공방 · '+data.plates.filter((_,p)=>!L.done(data,state,p)).length+'개의 판';scene.setAttribute('aria-hidden','true');board.appendChild(scene);
+    const scene=document.createElement('span');scene.className='workbench-label';scene.textContent=data.name+' · 남은 판 '+data.plates.filter((_,p)=>!L.done(data,state,p)).length+'개';scene.setAttribute('aria-hidden','true');board.appendChild(scene);
     data.plates.forEach((plate,p)=>{
       if(L.done(data,state,p))return;
       const pose=L.pose(data,state,p);
-      const el=document.createElement('div');el.className='plate shape-'+plate.shape+' color-'+((p+2)%6)+(pose.swung?' swung':'');el.style.setProperty('--angle',pose.angle+'deg');
+      const el=document.createElement('div');el.className='plate shape-'+plate.shape+' color-'+data.palette[p%data.palette.length]+(pose.swung?' swung':'');el.style.setProperty('--angle',pose.angle+'deg');
       Object.assign(el.style,{left:pose.x+'%',top:pose.y+'%',width:plate.w+'%',height:plate.h+'%',zIndex:p+1});
-      const face=document.createElement('div');face.className='plate-face '+['wood','acrylic','metal'][p%3];el.appendChild(face);
+      const face=document.createElement('div');face.className='plate-face '+data.materials[p%data.materials.length];el.appendChild(face);
+      if(!['rect','bar','circle'].includes(plate.shape))face.style.clipPath='polygon('+L.polygon(plate).map(([x,y])=>x*100+'% '+y*100+'%').join(',')+')';
       const label=document.createElement('span');label.className='plate-label';label.textContent=String(p+1).padStart(2,'0')+(plate.hinge?' ↪':'');el.appendChild(label);
       plate.colors.forEach((c,s)=>{
         const pos=plate.screws[s],hole=document.createElement('span');hole.className='screw-hole';hole.style.left=pos.x*100+'%';hole.style.top=pos.y*100+'%';el.appendChild(hole);
         if(state.removed[p]&(1<<s))return;
         const available=L.available(data,state,p,s),locked=L.locked(data,state,p,s),lock=pos.lock;
         const buttonRun=P.epoch,b=P.button('',()=>{if(buttonRun===P.epoch)act(p,s,b);},el,(p+1)+'번 판 '+(s+1)+'번 나사 '+symbols[c]+', '+(available?'풀 수 있어요':locked?'잠겨 있어요. '+(lock.p+1)+'번 판 '+(lock.s+1)+'번 나사가 열쇠예요':'위 판에 가려져 있어요'));
-        b.className='screw color-'+c+(locked?' locked':'');b.setAttribute('aria-disabled',String(!available));b.dataset.screw=p*4+s;
+        b.className='screw color-'+c+(locked?' locked lock-'+lock.type:previous&&L.locked(data,previous,p,s)?' unlocking':'');b.setAttribute('aria-disabled',String(!available));b.dataset.screw=p*4+s;
         const mark=document.createElement('span');mark.textContent=symbols[c];b.appendChild(mark);
         const number=document.createElement('small');number.className='screw-number';number.textContent=s+1;number.setAttribute('aria-hidden','true');b.appendChild(number);
         if(locked){const badge=document.createElement('small');badge.className='screw-lock';badge.textContent=(lock.type==='ice'?'❄':'🔗')+' '+(lock.p+1)+'.'+(lock.s+1);b.appendChild(badge);}
@@ -119,9 +119,9 @@
   }
   P.mount(()=>{
     busy=false;data=L.level(P.level);state=L.initial(data);history=[];
-    banner.textContent=data.hint?'💡 '+data.hint:'';banner.hidden=!data.hint;
+    P.introduce(data,L.mechanicHints);
     document.querySelectorAll('.flying-screw').forEach(e=>e.remove());
     undo=P.button('되돌리기',()=>{if(P.over||busy||!history.length)return;state=L.undo(data,state,history.pop());P.move();P.say('나사를 다시 끼웠어요. 되돌리기도 1회로 세어요.');render();if(state.failed)P.fail('보너스 횟수를 넘겼어요.');else undo.focus();});render();
-    P.say(data.name+' · '+(P.level===1?'👆 손가락이 가리키는 나사를 눌러 보세요.':'드러난 나사를 풀고 다음 공구함을 준비해요.'));
+    P.say(data.name+' · '+data.hint);
   });
 })();

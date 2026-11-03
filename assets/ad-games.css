@@ -212,8 +212,14 @@ body[data-game="water-sort"] .puzzle-actions .btn { min-width: 0; padding-inline
 }
 
 /* Level introductions share a compact, accessible note in both workshops. */
-.mechanic-hint { margin: 0 0 8px; padding: 9px 12px; border: 1px solid #c6d6f4; border-left: 4px solid #8271dd; border-radius: 12px; background: linear-gradient(115deg,#f3efff,#edf9ff); color: #35466c; font-size: .76rem; line-height: 1.5; text-wrap: pretty; }
+.mechanic-hint { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; padding: 5px 8px; border: 1px solid #c6d6f4; border-left: 4px solid #8271dd; border-radius: 12px; background: linear-gradient(115deg,#f3efff,#edf9ff); color: #35466c; font-size: .76rem; line-height: 1.5; text-wrap: pretty; }
 .mechanic-hint[hidden] { display: none; }
+.mechanic-text { flex: 1; }
+.mechanic-next { flex: 0 0 auto; min-width: 44px; min-height: 44px; padding: 5px; border: 0; border-radius: 8px; background: var(--surface); color: var(--accent-ink); font: inherit; font-weight: 800; cursor: pointer; }
+@media (max-width: 600px) {
+  /* Leave room for the first-use note and actions on a 390×844 phone. */
+  .game:has(.mechanic-hint:not([hidden])) .pin-board { max-width: 320px; }
+}
 .box-queue { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px; margin-top: 7px; color: #344c69; font-size: .68rem; font-weight: 800; }
 .queue-chip { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 7px; color: #fff; background: var(--piece); box-shadow: inset 0 1px #ffffff88,0 2px 2px #12345533; text-shadow: 0 1px 2px #123455; }
 .move-budget { margin: 6px 0 0; color: #594389; font-size: .69rem; text-align: center; font-weight: 800; }
@@ -230,6 +236,13 @@ body[data-game="water-sort"] .puzzle-actions .btn { min-width: 0; padding-inline
 .screw-board .screw { pointer-events: auto; }
 .screw-lock { position: absolute; z-index: 3; top: -13px; left: -8px; min-width: 52px; padding: 2px 3px; border-radius: 7px; background: #edf9ff; color: #304662; border: 1px solid #aec7e3; font-size: .6rem; font-weight: 900; white-space: nowrap; }
 .screw.locked::before { background: radial-gradient(circle at 30% 20%,#fff,#c3e9fa 40%,#719ebd 80%); }
+.screw.lock-ice { border-color: #b6efff; }
+.screw.lock-ice::before { background: repeating-conic-gradient(from 15deg,#ffffffb8 0 3deg,transparent 4deg 58deg),radial-gradient(circle at 25% 20%,#fff,#b4eaff 45%,#599ccf 90%); }
+.screw.lock-chain { border-color: #bc9460; }
+.screw.lock-chain::before { background: repeating-linear-gradient(135deg,transparent 0 9px,#a57a44 10px 13px,#ffe5a6 14px 16px,transparent 17px 24px),radial-gradient(circle at 25% 20%,#fff,#9fabb9 60%,#52677d); }
+.screw.unlocking { animation: screw-unlock .55s ease-out; }
+@keyframes screw-unlock { 35% { filter: brightness(1.7); box-shadow: 0 0 0 9px #a8edff88,0 0 22px #fff6c5; } }
+@media (prefers-reduced-motion: reduce) { .screw.unlocking { animation: none; } }
 .plate.swung .plate-label { color: #533e80; }
 @media (prefers-color-scheme: dark) {
   .mechanic-hint { background: linear-gradient(115deg,#353052,#233f54); color: #eff4ff; border-color: #65789d; border-left-color: #baa8ff; }
