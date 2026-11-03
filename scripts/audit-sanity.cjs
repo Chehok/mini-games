@@ -142,6 +142,9 @@ for (const dir of ['pin-pull','water-sort','screw-puzzle','parking-jam','untangl
 }
 for (const file of ['assets/ad-puzzles.js']) new vm.Script(read(file),{filename:file});
 const W=ctx.window.WaterLogic, Park=ctx.window.ParkingLogic, Screw=ctx.window.ScrewLogic, U=ctx.window.UntangleLogic, Pin=ctx.window.PinLogic;
+assert(!/광고에서 본 그 게임|광고 게임/.test(read('index.html')+read('README.md')),'hub category uses its new name');
+assert(read('index.html').includes('aria-label="어? 그 게임"><span class="tab-icon" aria-hidden="true">👀 </span>어? 그 게임'),'hub shares the icon and label structure');
+for(const dir of ['pin-pull','water-sort','screw-puzzle','parking-jam','untangle'])assert(read(dir+'/index.html').includes('href="../#ads">← 어? 그 게임'),'back link preserves the legacy tab hash');
 function bfs(start, key, goal, neighbors, limit=200000) {
   const queue=[start],seen=new Set([key(start)]);
   for(let head=0;head<queue.length;head++) {
@@ -155,13 +158,15 @@ function bfs(start, key, goal, neighbors, limit=200000) {
 }
 const waterKey=t=>t.map(a=>a.join('')).sort().join('|');
 for(let sample=0;sample<24;sample++) {
-  const {tubes}=W.generate(1,rnd);
+  const {tubes}=W.generate(1+sample%3,rnd);
   assert(!W.solved(tubes),'water starts unsolved');
   assert(bfs(tubes,waterKey,W.solved,s=>{
     const next=[];for(let a=0;a<s.length;a++)for(let b=0;b<s.length;b++){const t=W.pour(s,a,b);if(t)next.push(t);}return next;
   }), 'water small level BFS solvable');
 }
-for(let level=1;level<=40;level++)for(let sample=0;sample<8;sample++) {
+let waterWitnesses=0;
+for(const level of [...Array.from({length:40},(_,i)=>i+1),80,250,9999])for(let sample=0;sample<8;sample++) {
+  waterWitnesses++;
   const generated=W.generate(level,rnd);let state=generated.tubes;
   assert(!W.solved(state),'water generated puzzle must be mixed');
   assert.equal(state.flat().length,generated.colors*4);
@@ -171,6 +176,7 @@ for(let level=1;level<=40;level++)for(let sample=0;sample<8;sample++) {
 }
 assert.equal(W.pour([[0],[1],[],[]],0,1),null);
 assert.equal(W.pour([[0],[0,0,0,0]],0,1),null);
+assert(Park.designs.length>=15&&Park.designs.length<=20,'15–20 parking levels');
 for(let level=1;level<=Park.designs.length;level++) {
   const cars=Park.level(level),occupied=new Set();
   assert(cars.some((car,i)=>!Park.canExit(cars,i)),'parking starts with at least one blocked car');
@@ -180,9 +186,15 @@ for(let level=1;level<=Park.designs.length;level++) {
   }), 'parking '+level+' BFS solvable');
 }
 // Search all legal screw choices until a solution is found, with memoization.
+assert(Screw.designs.length>=15&&Screw.designs.length<=20,'15–20 screw levels');
 for(let level=1;level<=Screw.designs.length;level++) {
   const data=Screw.level(level),visited=new Set();
   assert(data.plates.some((_,p)=>[0,1,2].some(s=>!Screw.available(data,Screw.initial(data),p,s))),'layered plates actually cover screws');
+  const initial=Screw.initial(data),before=JSON.stringify(initial);
+  data.plates.forEach((_,p)=>[0,1,2].forEach(s=>{
+    if(!Screw.available(data,initial,p,s))assert.equal(Screw.remove(data,initial,p,s),null,'covered screws cannot be removed');
+  }));
+  assert.equal(JSON.stringify(initial),before,'rejected taps preserve the screw state');
   function solve(state){
     if(state.removed.every(n=>n===7))return true;
     const key=JSON.stringify(state);if(visited.has(key))return false;visited.add(key);
@@ -199,7 +211,9 @@ for(let level=1;level<=Screw.designs.length;level++) {
   }
   assert(solve(Screw.initial(data)),'screw '+level+' solvable');
 }
-for(let level=1;level<=60;level++)for(let sample=0;sample<4;sample++) {
+let untangleWitnesses=0;
+for(const level of [...Array.from({length:60},(_,i)=>i+1),250,9999])for(let sample=0;sample<4;sample++) {
+  untangleWitnesses++;
   const data=U.generate(level,rnd);
   assert(U.clear(data.solution,data.edges),'untangle solution is planar and separated');
   assert(U.crossings(data.nodes,data.edges).length>0,'untangle starts crossed');
@@ -208,19 +222,26 @@ for(let level=1;level<=60;level++)for(let sample=0;sample<4;sample++) {
 }
 assert(U.intersects({x:0,y:0},{x:10,y:10},{x:0,y:10},{x:10,y:0}));
 assert(U.intersects({x:0,y:0},{x:10,y:0},{x:5,y:0},{x:15,y:0}),'collinear overlap counts');
+assert.deepEqual(JSON.parse(JSON.stringify(U.crossingPoint({x:0,y:0},{x:10,y:10},{x:0,y:10},{x:10,y:0}))),{x:5,y:5},'crossing glows sit at the intersection');
 // Replay the exact fixed-step particle engine used on canvas, not an abstract graph.
 let wrongOrders=0;
-assert(Pin.designs.length>=12);
+assert(Pin.designs.length>=15&&Pin.designs.length<=20,'15–20 pin levels');
+assert(Pin.R>=9&&Pin.R<=11,'gems stay large enough to read on a phone');
+assert(Pin.designs.filter(d=>d.branch).length>=4,'later levels include branching gem chambers');
 for(let level=1;level<=Pin.designs.length;level++) {
   const data=Pin.level(level);
   assert.equal(new Set(data.order).size,data.pins.length,'intended order visits every pin once');
-  assert(data.particles.every(p=>p.x>95&&p.x<265&&p.y>22),'particles start inside the chambers');
+  assert(data.particles.every(p=>p.x>68+Pin.R&&p.x<292-Pin.R&&p.y>16+Pin.R),'particles start inside the wider chambers');
   const state=Pin.simulate(data,data.order);
   assert(Pin.solved(data,state),`pin ${level} physical simulation wins (${state.collected}/${data.target}): ${state.reason}`);
   assert(state.collected>=data.target);
   assert.equal(state.lost,0,'intended solution loses no gems');
   assert.equal(state.drained,data.particles.filter(p=>p.kind==='mud').length,'all mud drains into side bins');
   assert(state.balls.every(b=>[b.x,b.y,b.vx,b.vy].every(Number.isFinite)),'physics stays finite');
+  assert(state.balls.filter(b=>b.kind==='mud').every(b=>b.status==='out'&&(b.x<68||b.x>292)),'mud visibly reaches a side bin');
+  const cup=state.balls.filter(b=>b.status==='cup');
+  assert(Math.max(...cup.map(b=>b.y))-Math.min(...cup.map(b=>b.y))>Pin.R*2,'gems form a multi-row physical pile in the cup');
+  assert.equal(JSON.stringify(Pin.simulate(data,data.order)),JSON.stringify(state),'fixed-step replay is deterministic');
   const wrong=[...data.pins.map((p,i)=>p.kind==='gem'?i:-1).filter(i=>i>=0),...data.order];
   const bad=Pin.simulate(data,wrong);
   if(bad.failed){wrongOrders++;assert(!Pin.solved(data,bad));assert(/섞|진흙/.test(bad.reason));}
@@ -229,12 +250,12 @@ for(let level=1;level<=Pin.designs.length;level++) {
     assert(Pin.simulate(data,[...floorsFirst,...data.order]).failed,`pin ${level}: opening a muddy floor first must fail`);
   }
 }
-assert(wrongOrders>=6,'at least six puzzles punish releasing gems before mud drains');
+assert.equal(wrongOrders,Pin.designs.filter(d=>d.tiers).length,'every muddy level rejects gems-first play');
 // Closed pins support a real pile; a duplicate tap cannot pull twice.
 {
   const data=Pin.level(1),s=Pin.initial(data);
   for(let tick=0;tick<240;tick++)Pin.step(data,s);
-  assert(s.balls.every(b=>b.y<124-Pin.R),'closed pin catches falling gems');
+  assert(s.balls.every(b=>b.y<data.pins[0].y1-Pin.R),'closed pin catches falling gems');
   assert.equal(s.collected,0);assert(Pin.pull(data,s,0));assert.equal(Pin.pull(data,s,0),false);
 }
 // A fast tap sequence cannot bypass gravity/mixing, and loss is a genuine failure.
@@ -250,14 +271,17 @@ for(const value of [0,.5,.999999]) {
   const d=W.generate(1,()=>value);let t=d.tubes;assert(!W.solved(t));
   for(const [a,b] of d.solution){t=W.pour(t,a,b);assert(t);}assert(W.solved(t));
 }
+assert.equal(W.generate(1,rnd).solution.length,3,'water tutorial takes three pours');
+assert.equal(U.generate(1,rnd).nodes.length,4,'untangle tutorial starts with four pegs');
+assert(U.clear([U.generate(1,rnd).solution[0],...U.generate(1,rnd).nodes.slice(1)],U.generate(1,rnd).edges),'one peg solves the untangle tutorial');
 assert.equal(W.generate(25,rnd).colors,10,'water grows to ten colors');
 assert.equal(W.generate(9999,rnd).colors,10,'water remains bounded');
-console.log(`PASS: water small-case BFS + 320 reverse-shuffle solution witnesses (2–10 colors); 12 parking BFS, 12 screw searches; ${Pin.designs.length} physical pin solutions, ${wrongOrders} gem-first failures + muddy floor/rapid-pull/lost-gem failures; 240 planar untangle solutions`);
+console.log(`PASS: water small-case BFS + ${waterWitnesses} reverse-shuffle solution witnesses (2–10 colors); ${Park.designs.length} parking BFS, ${Screw.designs.length} screw searches + blocked taps/conservation; ${Pin.designs.length} deterministic physical pin solutions + cup piles/side bins, ${wrongOrders} gem-first failures + muddy floor/rapid-pull/lost-gem failures; ${untangleWitnesses} planar untangle solutions (through level 9,999)`);
 
 // Run real controllers with a small DOM/RAF harness. This checks resets during async
 // pours/flights/driving and progress persistence without pretending to be a browser.
-function adController(dir,level=1) {
-  let sequence=0;const frames=new Map(),saved=new Map([[dir+'.level',level]]);
+function adController(dir,level=1,{reduced=true,unlocked=level}={}) {
+  let sequence=0;const frames=new Map(),saved=new Map([[dir+'.level',level],[dir+'.unlocked',unlocked]]),animations=[];
   class Element {
     constructor(tag='div') {this.tagName=tag;this.children=[];this.parentNode=null;this.dataset={};this.attributes={};this.listeners={};this.style={setProperty(k,v){this[k]=v;}};this._class='';this.textContent='';this.disabled=false;this.hidden=false;this.clientWidth=296;this.clientHeight=444;}
     set className(value){this._class=value;}get className(){return this._class;}
@@ -267,7 +291,7 @@ function adController(dir,level=1) {
     remove(){if(this.parentNode)this.parentNode.children=this.parentNode.children.filter(e=>e!==this);this.parentNode=null;}
     before(el){const p=this.parentNode;if(!p)return;el.remove();el.parentNode=p;p.children.splice(p.children.indexOf(this),0,el);}
     after(el){const p=this.parentNode;if(!p)return;el.remove();el.parentNode=p;p.children.splice(p.children.indexOf(this)+1,0,el);}
-    setAttribute(k,v){this.attributes[k]=String(v);}getAttribute(k){return this.attributes[k]??null;}removeAttribute(k){delete this.attributes[k];}
+    setAttribute(k,v){this.attributes[k]=String(v);if(k==='class')this.className=String(v);}getAttribute(k){return this.attributes[k]??null;}removeAttribute(k){delete this.attributes[k];}
     addEventListener(type,fn){(this.listeners[type]||= []).push(fn);}
     dispatch(type,extra={}){const event={button:0,pointerId:1,clientX:100,clientY:200,preventDefault(){},...extra};for(const fn of this.listeners[type]||[])fn(event);}
     click(){if(this.disabled)return;this.dispatch('click');if(this.onclick)this.onclick();}
@@ -275,11 +299,12 @@ function adController(dir,level=1) {
     get firstElementChild(){return this.children[0];}
     getBoundingClientRect(){return {left:12,top:200,width:44,height:this.classList.contains('tube')?145:44};}
     cloneNode(deep){const el=new Element(this.tagName);el.className=this.className;el.style={...this.style};el.dataset={...this.dataset};el.attributes={...this.attributes};el.textContent=this.textContent;if(deep)this.children.forEach(c=>el.appendChild(c.cloneNode(true)));return el;}
+    animate(keyframes,options){let finish;const finished=new Promise(resolve=>{finish=resolve;});animations.push({keyframes,options,finish});return {finished,cancel(){}};}
     querySelectorAll(selector){
       if(selector.includes(','))return [...new Set(selector.split(',').flatMap(s=>this.querySelectorAll(s.trim())))];
       const match=(el,s)=>{
         if(s==='button:not(:disabled)')return el.tagName==='button'&&!el.disabled;
-        const d=s.match(/^\[data-(\w+)="(\d+)"\]$/);if(d)return String(el.dataset[d[1]])===d[2];
+        const d=s.match(/^\[data-([\w-]+)="([^"]+)"\]$/);if(d)return String(el.dataset[d[1]])===d[2];
         if(s.startsWith('.'))return el.classList.contains(s.slice(1));
         return el.tagName===s;
       };
@@ -287,15 +312,15 @@ function adController(dir,level=1) {
       const visit=el=>{for(const c of el.children){if(match(c,parts.at(-1))){if(parts.length===1)out.push(c);else {let p=c.parentNode;while(p&&p!==this){if(match(p,parts[0])){out.push(c);break;}p=p.parentNode;}}}visit(c);}};visit(this);return out;
     }
     querySelector(s){return this.querySelectorAll(s)[0]||null;}
-    getContext(){return new Proxy({createLinearGradient(){return {addColorStop(){}};}},{get:(t,k)=>t[k]||(()=>{}),set:(t,k,v)=>(t[k]=v,true)});}
+    getContext(){const gradient=()=>({addColorStop(){}});return new Proxy({createLinearGradient:gradient,createRadialGradient:gradient},{get:(t,k)=>t[k]||(()=>{}),set:(t,k,v)=>(t[k]=v,true)});}
   }
   const body=new Element('body'),main=new Element('main');body.appendChild(main);
-  const ids=new Map();for(const id of ['level','moves','instructions','board','status','extras','restart','next']){const el=new Element(['restart','next'].includes(id)?'button':'div');el.id=id;main.appendChild(el);ids.set(id,el);}
+  const ids=new Map();for(const id of ['level','moves','instructions','scene-meter','board','status','extras','restart','next']){const el=new Element(['restart','next'].includes(id)?'button':'div');el.id=id;main.appendChild(el);ids.set(id,el);}
   const document={body,activeElement:null,getElementById:id=>ids.get(id),createElement:tag=>new Element(tag),createElementNS:(_,tag)=>new Element(tag),querySelectorAll:s=>body.querySelectorAll(s)};
   const window={devicePixelRatio:2,innerWidth:320,addEventListener(){}};
-  const context={document,window,console,setTimeout:()=>0,matchMedia:()=>({matches:true,addEventListener(){}}),getComputedStyle:()=>({getPropertyValue:k=>({'--surface-2':'#f7f8fb','--text':'#171923','--muted':'#606579'}[k]||'')}),requestAnimationFrame:fn=>{frames.set(++sequence,fn);return sequence;},cancelAnimationFrame:id=>frames.delete(id),MG:{store:{get:(k,f)=>saved.has(k)?saved.get(k):f,set:(k,v)=>saved.set(k,v)},rng:L=>{let a=L;return ()=>{a=(Math.imul(a,1664525)+1013904223)>>>0;return a/4294967296;};},vibrate(){},beep(){},unlockAudio(){}}};
+  const context={document,window,console,setTimeout:()=>0,matchMedia:q=>({matches:q.includes('reduced-motion')?reduced:false,addEventListener(){}}),getComputedStyle:()=>({getPropertyValue:k=>({'--surface-2':'#f7f8fb','--text':'#171923','--muted':'#606579'}[k]||'')}),requestAnimationFrame:fn=>{frames.set(++sequence,fn);return sequence;},cancelAnimationFrame:id=>frames.delete(id),MG:{store:{get:(k,f)=>saved.has(k)?saved.get(k):f,set:(k,v)=>saved.set(k,v)},rng:L=>{let a=L;return ()=>{a=(Math.imul(a,1664525)+1013904223)>>>0;return a/4294967296;};},vibrate(){},beep(){},unlockAudio(){}}};
   for(const file of ['assets/ad-puzzles.js',dir+'/logic.js',dir+'/game.js']){vm.runInNewContext(read(file),context,{filename:file});Object.assign(context,window);}
-  return {ids,body,saved,window,press:id=>ids.get(id).click(),all:s=>body.querySelectorAll(s),ticks(n){for(let i=0;i<n;i++){const due=[...frames];frames.clear();due.forEach(([,fn])=>fn(i*1000/60+1000));}}};
+  return {ids,body,saved,window,animations,finishAnimations(){animations.splice(0).forEach(a=>a.finish());},press:id=>ids.get(id).click(),all:s=>body.querySelectorAll(s),ticks(n){for(let i=0;i<n;i++){const due=[...frames];frames.clear();due.forEach(([,fn])=>fn(i*1000/60+1000));}}};
 }
 (async()=>{
   const settle=async()=>{for(let i=0;i<12;i++)await Promise.resolve();};
@@ -305,25 +330,77 @@ function adController(dir,level=1) {
       g.all('.pin-handle')[0].click();g.press('restart');g.ticks(360);assert(g.ids.get('next').disabled,'reset cancels old pin pour');
       g.all('.pin-handle')[0].click();g.ticks(360);assert(!g.ids.get('next').disabled,'real pin controller celebrates after simulated collection');assert.equal(g.saved.get('pin-pull.unlocked'),2);g.press('next');assert.equal(g.saved.get('pin-pull.level'),2);
     }else if(dir==='water-sort'){
-      const pair=()=>{const board=g.ids.get('board'),L=g.window.WaterLogic,tubes=board.children.map(t=>t.children.filter(c=>c.className.includes('water color-')).map(c=>Number(c.className.split('color-')[1])));for(let a=0;a<tubes.length;a++)for(let b=0;b<tubes.length;b++)if(L.pour(tubes,a,b))return [a,b];throw Error('no water move');};
+      const pair=()=>{const board=g.ids.get('board'),L=g.window.WaterLogic,tubes=board.children.map(t=>t.querySelectorAll('.water').map(c=>Number(c.className.split('color-')[1])));for(let a=0;a<tubes.length;a++)for(let b=0;b<tubes.length;b++)if(L.pour(tubes,a,b))return [a,b];throw Error('no water move');};
       let [a,b]=pair();g.ids.get('board').children[a].click();g.ids.get('board').children[b].click();g.press('restart');await settle();assert.equal(g.ids.get('moves').textContent,0);assert.equal(g.all('.pouring-tube').length,0);
       [a,b]=pair();g.ids.get('board').children[a].click();g.ids.get('board').children[b].click();await settle();assert.equal(g.ids.get('moves').textContent,1);assert.equal(g.all('.pour-stream').length,0);
     }else if(dir==='screw-puzzle'){
-      g.ids.get('board').querySelector('button:not(:disabled)').click();g.press('restart');await settle();assert.equal(g.ids.get('moves').textContent,0);assert.equal(g.all('.flying-screw').length,0);
-      g.ids.get('board').querySelector('button:not(:disabled)').click();await settle();assert.equal(g.ids.get('moves').textContent,1);
+      const available=()=>g.all('.screw').find(b=>b.getAttribute('aria-disabled')!=='true');
+      g.all('.screw').find(b=>b.getAttribute('aria-disabled')==='true').click();await settle();assert.equal(g.ids.get('moves').textContent,0,'blocked screw shakes without consuming a move');
+      available().click();g.press('restart');await settle();assert.equal(g.ids.get('moves').textContent,0);assert.equal(g.all('.flying-screw').length,0);
+      available().click();await settle();assert.equal(g.ids.get('moves').textContent,1);
+      g.ids.get('extras').children[0].click();assert.equal(g.all('.screw').length,6,'undo restores the removed head');
+      for(let i=0;i<6;i++){g.all('.screw').reverse().find(b=>b.getAttribute('aria-disabled')!=='true').click();await settle();}
+      assert(!g.ids.get('next').disabled,'screw controller clears both plates and toolboxes');assert.equal(g.all('.puzzle-clear').length,1,'stars and clear banner remain visible with reduced motion');
     }else if(dir==='parking-jam'){
       const cars=g.window.ParkingLogic.level(1),index=cars.findIndex((_,i)=>g.window.ParkingLogic.canExit(cars,i));
       g.all('.car')[index].click();g.press('restart');await settle();assert.equal(g.ids.get('moves').textContent,0);assert.equal(g.all('.car').length,cars.length);
       g.all('.car')[index].click();await settle();assert.equal(g.all('.car').length,cars.length-1);
+      assert.equal(g.ids.get('scene-meter').textContent,'목표 '+cars.length+'대 · 탈출 1 / '+cars.length+'대');
     }else{
       g.all('.graph-node')[0].dispatch('keydown',{key:'ArrowLeft'});assert.equal(g.ids.get('moves').textContent,1);g.press('restart');
       for(let i=0;i<10&&g.ids.get('next').disabled;i++)g.ids.get('extras').children[0].click();assert(!g.ids.get('next').disabled,'untangle hint solution wins');
+      assert.equal(g.all('.puzzle-clear').length,1);assert.equal(g.all('.crossing-point').length,0,'solved ropes have no crossing glow');
     }
     g.press('restart');await settle();assert.equal(g.ids.get('moves').textContent,0);assert(g.ids.get('next').disabled);
     g.all('.sound-toggle')[0].click();g.press('restart');assert.equal(g.all('.sound-toggle')[0].getAttribute('aria-pressed'),'true');
   }
   const legacy=adController('water-sort',25);assert.equal(legacy.ids.get('board').children.length,12);assert.equal(legacy.saved.get('water-sort.level'),25,'legacy progress key stays compatible');
-  console.log('PASS: all five real controllers mount; async reset cancellation, pin collection, water pour, screw flight, parking exit, keyboard/hint win, sound default and legacy level progress');
+  for(const dir of ['pin-pull','screw-puzzle','parking-jam']){
+    const old=adController(dir,999,{unlocked:999});assert.equal(old.saved.get(dir+'.level'),18,'legacy level clamps to the new maximum');assert.equal(old.saved.get(dir+'.unlocked'),18,'legacy unlock clamps too');
+  }
+  {
+    const g=adController('water-sort');
+    assert.equal(g.all('.tutorial-hand').length,1,'first pour has a pointing hand');
+    for(const [a,b] of g.window.WaterLogic.generate(1).solution){g.all('.tube')[a].click();g.all('.tube')[b].click();await settle();}
+    assert.equal(g.all('.tube-cork').length,2,'both completed colors get corks');assert.equal(g.all('.puzzle-clear').length,1);assert(!g.ids.get('next').disabled);assert.equal(g.ids.get('moves').textContent,3);
+  }
+  {
+    const g=adController('water-sort',1,{reduced:false});
+    g.all('.tube')[0].click();g.all('.tube')[2].click();assert(g.animations[0].keyframes.at(-1).transform.includes('rotate('),'tube moves and tilts before pouring');
+    g.finishAnimations();await settle();assert.equal(g.all('.pour-stream').length,1,'an SVG arc joins the pouring mouth to the target');
+    assert(g.animations.some(a=>a.keyframes[0].height==='0px'),'target liquid rises continuously');
+    assert(g.animations.some(a=>a.keyframes.at(-1).height==='0px'),'source liquid falls continuously');
+    g.press('restart');g.finishAnimations();await settle();assert.equal(g.all('.water-flight').length,0,'reset during actual pouring removes the stream and ghost');assert.equal(g.ids.get('moves').textContent,0);
+  }
+  {
+    const g=adController('parking-jam',1,{reduced:false}),cars=g.window.ParkingLogic.level(1),blocked=cars.findIndex((_,i)=>!g.window.ParkingLogic.canExit(cars,i));
+    g.all('.car')[blocked].click();assert.equal(g.ids.get('moves').textContent,0,'blocked car never counts as an exit');assert(g.animations[0].keyframes.some(k=>k.transform.includes('rotate')),'blocked car gently bounces and shakes');
+    g.finishAnimations();await settle();const open=cars.findIndex((_,i)=>g.window.ParkingLogic.canExit(cars,i));g.all('.car')[open].click();
+    assert.equal(g.animations[0].keyframes.length,4,'exit accelerates through its lane');assert.equal(g.all('.active').length,1,'matching curb gap lights up');
+    g.press('restart');g.finishAnimations();await settle();assert.equal(g.all('.car').length,cars.length);assert.equal(g.ids.get('moves').textContent,0,'restart cancels actual driving');
+  }
+  {
+    const g=adController('parking-jam'),cars=g.window.ParkingLogic.level(1);
+    while(cars.some(Boolean)){const i=cars.findIndex((c,i)=>c&&g.window.ParkingLogic.canExit(cars,i));g.all('.car').find(b=>+b.dataset.index===i).click();await settle();cars[i]=null;}
+    assert.equal(g.all('.puzzle-clear').length,1);assert(!g.ids.get('next').disabled,'parking celebrates after every car exits');
+  }
+  {
+    const g=adController('untangle'),node=g.all('.graph-node')[0],label=node.getAttribute('aria-label');
+    assert.equal(g.all('.crossing-point').length,1);assert.equal(g.all('.tutorial-hand').length,1);
+    node.dispatch('pointerdown');assert(node.classList.contains('dragging'));node.dispatch('pointermove',{clientX:120,clientY:210});g.ticks(1);node.dispatch('pointercancel');
+    assert.equal(node.getAttribute('aria-label'),label,'pointer cancellation restores the peg');assert.equal(g.ids.get('moves').textContent,0);
+    node.dispatch('pointerdown');node.dispatch('pointermove',{clientX:134.32,clientY:209.68});node.dispatch('pointerup');
+    assert(!g.ids.get('next').disabled,'dragging the tutorial peg to its ring solves the actual controller');assert.equal(g.ids.get('moves').textContent,1);assert.equal(g.all('.puzzle-clear').length,1);
+  }
+  {
+    const g=adController('screw-puzzle',1,{reduced:false});
+    g.all('.screw').find(b=>b.getAttribute('aria-disabled')!=='true').click();
+    assert(g.animations[0].keyframes.at(-1).transform.includes('720deg'),'screw lifts with two full turns');
+    g.finishAnimations();await settle();assert.equal(g.animations.length,1,'flight follows the lift');
+    assert.equal(g.animations[0].keyframes.length,3,'flight includes a raised arc midpoint');
+    g.press('restart');g.finishAnimations();await settle();assert.equal(g.ids.get('moves').textContent,0,'reset during actual animation discards the old flight');assert.equal(g.all('.flying-screw').length,0);
+  }
+  console.log('PASS: all five real controllers; animated pour/level changes and driving reset cancellation, corks/clear banners, blocked-car bounce, exit meter, peg drag/cancel/glows, keyboard/hint win, sound OFF and legacy progress');
 })().catch(e=>{console.error(e);process.exitCode=1;});
 
 require('./recreation-sanity.cjs');

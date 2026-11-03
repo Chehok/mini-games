@@ -3,20 +3,28 @@
   // Each pair of plates supplies exactly two complete, three-screw boxes.
   // Offsets expose lower screws, so choosing what to park in the tray matters.
   const designs = [
-    [[18,18],[8,32]], [[8,16],[25,30]], [[25,14],[6,28]],
-    [[8,8],[25,28],[6,48],[24,65]], [[24,8],[6,27],[25,46],[8,65]],
-    [[15,5],[5,25],[26,45],[12,65]], [[6,5],[25,24],[8,44],[24,65]],
-    [[24,4],[5,23],[26,45],[8,65]],
-    [[8,2],[25,16],[5,32],[24,48],[8,64],[24,78]],
-    [[25,2],[6,17],[24,32],[7,48],[25,64],[6,78]],
-    [[15,2],[5,17],[26,32],[7,48],[25,64],[12,78]],
-    [[6,2],[25,17],[7,32],[24,48],[6,64],[25,78]]
+    [[7,12],[12,40]], [[13,11],[6,40]], [[7,10],[13,39]],
+    [[6,5],[18,25],[5,45],[16,64]], [[17,5],[5,25],[18,44],[6,64]],
+    [[9,5],[18,24],[4,44],[14,64]], [[5,5],[18,24],[6,44],[16,64]],
+    [[17,4],[4,24],[18,44],[6,64]],
+    [[6,3],[19,17],[4,32],[18,47],[5,62],[17,75]],
+    [[19,3],[5,17],[18,32],[4,47],[19,62],[6,75]],
+    [[10,3],[4,17],[19,32],[5,47],[18,62],[10,75]],
+    [[5,3],[19,17],[6,32],[18,47],[4,62],[19,75]],
+    [[18,3],[5,18],[17,33],[6,47],[18,61],[5,75]],
+    [[5,3],[17,17],[4,32],[19,46],[6,61],[17,75]],
+    [[12,3],[4,17],[19,31],[6,46],[18,61],[8,75]],
+    [[4,3],[18,17],[7,32],[19,47],[5,61],[17,75]],
+    [[18,3],[6,17],[19,32],[4,47],[17,61],[6,75]],
+    [[8,3],[18,17],[4,31],[19,46],[5,61],[15,75]]
   ];
   function level(n) {
-    const positions=designs[(n-1)%designs.length], count=positions.length;
-    const plates=positions.map(([x,y],i) => {
+    n=Math.max(1,Math.min(designs.length,n));
+    const layout=designs[n-1], count=layout.length;
+    const plates=layout.map(([x,y],i) => {
       const fromTop=count-1-i, pair=Math.floor(fromTop/2), a=(pair*2+n-1)%6, b=(a+1)%6;
-      return {x,y,w:68,h:22,angle:((i+n)%2?1:-1)*(4+(i%3)*2),colors:fromTop%2===0?[a,b,a]:[b,a,b]};
+      return {x,y,w:count===2?80:count===4?76:74,h:count===2?44:count===4?29:22,
+        angle:((i+n)%2?1:-1)*(4+(i%3)*2),colors:fromTop%2===0?[a,b,a]:[b,a,b]};
     });
     const queue=[];
     for(let i=count-1;i>=0;i-=2) queue.push(plates[i].colors[0],plates[i].colors[1]);
@@ -58,5 +66,5 @@
     if(next.tray.length>3)return null;
     return next;
   }
-  root.ScrewLogic={designs,positions,level,initial,available,remove};
+  root.ScrewLogic={designs,positions,level,initial,available,remove,worldPoint};
 })(typeof window === 'undefined' ? globalThis : window);

@@ -13,11 +13,14 @@
   }
   function generate(level, random) {
     random = random || Math.random;
+    // Three easy pours teach selecting a source, using an empty tube, then matching.
+    if (level === 1) return {tubes:[[0,0,0,1],[1,1,1,0],[],[]],solution:[[0,2],[1,0],[2,1]],colors:2};
     const colors = Math.min(10, 2 + Math.floor((level - 1) / 3));
     let state = Array.from({length:colors}, (_,c) => Array(CAP).fill(c)).concat([[], []]);
     const solution = []; const seen = new Set([JSON.stringify(state)]);
     // A reverse step is accepted only when the real, maximal forward pour restores its parent.
-    for (let step = 0; step < 14 + Math.min(level, 40) * 5; step++) {
+    const steps = level <= 3 ? 4 + level * 3 : 14 + Math.min(level, 40) * 3;
+    for (let step = 0; step < steps; step++) {
       const candidates = [];
       for (let a = 0; a < state.length; a++) for (let b = 0; b < state.length; b++) {
         if (a === b || !state[a].length) continue;

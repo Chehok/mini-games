@@ -5,7 +5,8 @@
   window.AdPuzzle = function (key, maxLevel) {
     const $=id=>document.getElementById(id),saved=Number(MG.store.get(key+'.level',1));
     let level=Number.isFinite(saved)?Math.max(1,Math.min(maxLevel||9999,Math.floor(saved))):1;
-    let reached=Math.max(level,Number(MG.store.get(key+'.unlocked',level))||1),moves=0,over=false,start,epoch=0;
+    const unlocked=Number(MG.store.get(key+'.unlocked',level));
+    let reached=Math.max(level,Number.isFinite(unlocked)?Math.max(1,Math.min(maxLevel||9999,Math.floor(unlocked))):level),moves=0,over=false,start,epoch=0;
     let sound=false; // Sound always starts OFF; never unlock audio without an explicit gesture.
     const motion=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
     const settings=document.createElement('div');settings.className='puzzle-settings';
@@ -28,6 +29,12 @@
     }
     function celebrate(){
       $('board').classList.add('solved');
+      {
+        const banner=document.createElement('div');banner.className='puzzle-clear';banner.setAttribute('aria-hidden','true');
+        const stars=document.createElement('span');stars.className='clear-stars';stars.textContent='★ ★ ★';banner.appendChild(stars);
+        const title=document.createElement('strong');title.textContent={'pin-pull':'보석 수집 완료!','screw-puzzle':'공구함 정리 완료!','water-sort':'색깔 정리 완료!','parking-jam':'모두 탈출했어요!','untangle':'매듭을 다 풀었어요!'}[key];banner.appendChild(title);
+        const note=document.createElement('small');note.textContent=key==='pin-pull'||key==='screw-puzzle'?'멋지게 해냈어요! 다음 보물도 찾아볼까요?':'멋지게 해냈어요! 다음 단계도 도전해요.';banner.appendChild(note);$('board').appendChild(banner);
+      }
       if(motion())return;
       const layer=document.createElement('div');layer.className='puzzle-confetti';layer.setAttribute('aria-hidden','true');$('board').appendChild(layer);
       for(let i=0;i<32;i++){
@@ -62,7 +69,7 @@
       epoch++;moves=0;over=false;$('moves').textContent=0;$('level').textContent=level+(maxLevel?' / '+maxLevel:'');
       $('next').disabled=true;$('next').textContent='다음 단계';$('status').textContent='';
       $('board').classList.remove('solved','failed');$('board').replaceChildren();$('extras').replaceChildren();
-      MG.store.set(key+'.level',level);options();start();
+      MG.store.set(key+'.level',level);MG.store.set(key+'.unlocked',reached);options();start();
     }
     $('restart').onclick=reset;
     $('next').onclick=()=>{if(!over||$('next').disabled)return;level=maxLevel&&level===maxLevel?1:Math.min(9999,level+1);reset();$('restart').focus();};

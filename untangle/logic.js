@@ -15,6 +15,12 @@
     }
     return pairs;
   }
+  function crossingPoint(a,b,c,d) {
+    const dx=b.x-a.x,dy=b.y-a.y,ex=d.x-c.x,ey=d.y-c.y,den=dx*ey-dy*ex;
+    if(Math.abs(den)<.000001)return [a,b,c,d].find(p=>touches(a,b,p)&&touches(c,d,p))||a;
+    const t=((c.x-a.x)*ey-(c.y-a.y)*ex)/den;
+    return {x:a.x+t*dx,y:a.y+t*dy};
+  }
   function clear(nodes,edges) {
     if(crossings(nodes,edges).length)return false;
     // Nodes may not hide on other nodes or on unrelated edges.
@@ -26,11 +32,17 @@
   }
   function generate(level,random) {
     random=random||Math.random;
-    const n=Math.min(10,5+Math.floor((level-1)/2));
+    const n=Math.min(10,4+Math.floor((level-1)/3));
     const solution=Array.from({length:n},(_,i)=>({x:50+38*Math.cos(i/n*2*Math.PI),y:50+38*Math.sin(i/n*2*Math.PI)}));
     const edges=Array.from({length:n},(_,i)=>[i,(i+1)%n]);
     // Convex polygon plus a fan from vertex zero is planar by construction.
-    for(let i=2;i<n-1;i++)if(i%2===0||level>5)edges.push([0,i]);
+    for(let i=2;i<n-1;i++)if(level>3&&(i%2===0||level>12))edges.push([0,i]);
+    if(level===1){
+      const nodes=solution.map(p=>({...p}));
+      // One peg is across the opposite edge; dragging it home unties both crossings.
+      nodes[0]={x:10,y:28};
+      return {nodes,edges,solution};
+    }
     let nodes;
     for(let tries=0;tries<30;tries++){
       nodes=solution.map(p=>({...p}));
@@ -40,5 +52,5 @@
     if(!crossings(nodes,edges).length){nodes=solution.map(p=>({...p}));[nodes[1],nodes[3]]=[nodes[3],nodes[1]];}
     return {nodes,edges,solution};
   }
-  root.UntangleLogic={intersects,crossings,clear,generate};
+  root.UntangleLogic={intersects,crossings,crossingPoint,clear,generate};
 })(typeof window === 'undefined' ? globalThis : window);
