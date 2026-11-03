@@ -1,0 +1,21 @@
+/* Shared row editor and facilitator displays, using the site's design tokens. */
+.name-editor { min-width: 0; margin: 0; padding: 0; border: 0; }
+.name-editor > .btn { margin-top: 8px; }
+.name-row { display: grid; grid-template-columns: minmax(0, 1fr) 44px; gap: 8px; margin-bottom: 8px; }
+.name-row .input { min-width: 0; width: 100%; min-height: 48px; }
+.name-row .btn { padding: 0; font-size: 1.4rem; }
+.rec-page .hero { text-align: center; font-size: clamp(2.5rem, 14vw, 5rem); font-weight: 900; color: var(--accent-ink); padding: 24px 4px; overflow-wrap: anywhere; }
+.rec-page .controls { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
+.rec-page label { display: grid; gap: 6px; flex: 1; min-width: 0; }
+.rec-page input, .rec-page select { width: 100%; min-width: 0; min-height: 48px; }
+.rec-page .team-scores { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.rec-page .team-scores .panel { min-width: 0; padding: 12px; text-align: center; }
+.rec-page .team-scores strong { display: block; font-size: 2rem; }
+.rec-page .team-scores .btn { padding: 10px; }
+.rec-page .history { padding-left: 28px; font-size: 1.2rem; overflow-wrap: anywhere; }
+.rec-page .match { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; margin-bottom: 10px; }
+.rec-page .match .btn { white-space: normal; overflow-wrap: anywhere; }
+.rec-page .match [aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
+body[data-game="rps-bracket"] .site-header { grid-template-columns: 1fr auto; }
+body[data-game="rps-bracket"] .site-header h1 { white-space: normal; font-size: 1rem; }
+body[data-game="rps-bracket"] .site-header .spacer { display: none; }

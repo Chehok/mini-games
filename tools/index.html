@@ -16,6 +16,7 @@
   <meta name="description" content="모임 진행 도구: 팀을 한 팀씩 공개하고, 사다리는 도착할 때 결과를 열고, 룰렛·슬롯으로 순서와 뽑기를 정해요.">
   <meta name="color-scheme" content="light dark">
   <link rel="stylesheet" href="../assets/style.css?v=fc901d82">
+  <link rel="stylesheet" href="../assets/recreation.css?v=51d33eaa">
   <style>
     main.tools-page { max-width: 1040px; }
     .tabs { display: flex; justify-content: center; margin-bottom: 14px; max-width: 100%; }
@@ -60,7 +61,7 @@
     .stepper b { min-width: 2.4ch; text-align: center; font-size: 1.4rem; font-variant-numeric: tabular-nums; }
     .check { display: flex; align-items: center; gap: 10px; font-weight: 700; min-height: 44px; margin-top: 8px; }
     .check input { width: 1.2rem; height: 1.2rem; accent-color: var(--accent); }
-    .teamgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 4px; }
+    .teamgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 12px; margin-top: 4px; }
     .team {
       background: var(--surface-2); border-radius: 18px; padding: 14px 14px 10px;
       border-top: 8px solid var(--c, var(--accent)); box-shadow: var(--shadow);
@@ -68,23 +69,24 @@
     }
     .team h3 { margin: 0 0 6px; font-size: 1.3rem; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
     .team ul { margin: 0; padding: 0; list-style: none; }
-    .team li { font-weight: 800; font-size: 1.2rem; padding: 7px 0; border-top: 1px solid var(--border); }
+    .team li { font-weight: 800; font-size: 1.2rem; overflow-wrap: anywhere; padding: 7px 0; border-top: 1px solid var(--border); }
     .team li:first-child { border-top: 0; }
     .mixer { text-align: center; padding: 18px 8px 8px; min-height: 150px; }
     .mixer-name { font-size: clamp(2rem, 8vw, 3.4rem); font-weight: 900; color: var(--accent-ink); min-height: 1.15em; word-break: keep-all; }
-    .lad-row { display: grid; grid-template-columns: 1.6rem minmax(0, 1fr) minmax(0, 1fr); gap: 8px; align-items: center; margin-bottom: 8px; }
+    .lad-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px; gap: 8px; align-items: center; margin-bottom: 8px; }
     .lad-row .idx { font-weight: 900; text-align: center; font-size: 1.05rem; }
     .lad-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 18px; }
     .lad-inner {
-      width: 100%; min-width: calc(var(--n, 4) * 68px);
+      width: 100%; min-width: calc(var(--n, 4) * 52px);
       background: var(--surface-2); border-radius: 18px; padding: 8px 0 10px;
     }
     .lad-cols { display: grid; grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)); }
     .lad-name {
       margin: 0 3px 8px; min-height: 48px; border: 0; border-radius: 12px;
       font-weight: 900; font-size: clamp(.72rem, 2.4vw, 1.05rem); padding: 6px 2px;
-      word-break: keep-all; touch-action: manipulation;
+      overflow-wrap: anywhere; touch-action: manipulation;
     }
+    .lad-row .btn { padding: 0; font-size: 1.4rem; }
     .lad-name.done { opacity: .72; }
     .lad-scroll[data-busy="1"] .lad-name { pointer-events: none; }
     .prize {
@@ -92,8 +94,8 @@
       background: var(--surface); display: flex; flex-direction: column; align-items: center;
       justify-content: center; text-align: center; padding: 6px 2px; font-weight: 900;
     }
-    .prize .what { font-size: clamp(.8rem, 2.5vw, 1.2rem); line-height: 1.2; word-break: keep-all; color: var(--muted); }
-    .prize .who { font-size: clamp(.62rem, 2vw, .8rem); color: var(--c, var(--accent)); font-weight: 800; }
+    .prize .what { overflow-wrap: anywhere; font-size: clamp(.8rem, 2.5vw, 1.2rem); line-height: 1.2; word-break: keep-all; color: var(--muted); }
+    .prize .who { overflow-wrap: anywhere; font-size: clamp(.62rem, 2vw, .8rem); color: var(--c, var(--accent)); font-weight: 800; }
     .prize.on { border-style: solid; border-color: var(--c, var(--accent)); background: color-mix(in srgb, var(--c, var(--accent)) 18%, var(--surface)); }
     .prize.on .what { color: var(--text); }
     .actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 12px; }
@@ -186,7 +188,7 @@
           <span class="count-pill" id="countA">0명</span>
           <button class="btn small" id="sampleA" type="button">예시</button>
         </div>
-        <textarea class="input names" id="namesA" aria-label="이름 목록" placeholder="이름을 한 줄에 하나씩&#10;균형: 이름/태그 (예: 민수/남, 서연/여)"></textarea>
+        <fieldset id="namesA"></fieldset>
         <div class="name-chips" id="chipsA" aria-hidden="true"></div>
         <div class="step-line">
           <span class="muted" style="font-weight:800">팀 수</span>
@@ -221,6 +223,7 @@
             <button class="chip" id="preClear" type="button">결과 지우기</button>
           </div>
           <div class="lad-form-scroll" id="lIn"></div>
+          <button class="btn wide" id="lAdd" type="button">＋ 참가자 · 결과 추가</button>
           <p class="hint">비워 두면 1번은 당첨, 나머지는 꽝으로 둬요.</p>
         </div>
         <div class="panel stage">
@@ -231,10 +234,10 @@
               <div class="lad-cols" id="ladPrizes"></div>
             </div>
           </div>
-          <p class="hint">이름을 누르면 그 사람만 내려가요. 결과는 도착하기 전까지 비밀이에요.</p>
+          <p class="hint">이름을 누르면 그 사람만 내려가요. 결과는 도착하기 전까지 비밀이에요. 인원이 많으면 사다리를 옆으로 밀어 보세요.</p>
           <div class="actions">
-            <button class="btn" id="lAll" type="button">▶ 한 명씩 전체 공개</button>
-            <button class="btn" id="lNew" type="button">🔀 사다리 새로 만들기</button>
+            <button class="btn" id="lAll" type="button">전체 공개</button>
+            <button class="btn" id="lNew" type="button">🔀 다시 섞기</button>
             <button class="btn small" id="lCopy" type="button" hidden>📋 결과 복사</button>
           </div>
           <ul class="reveal-list" id="lRes" hidden></ul>
@@ -250,7 +253,7 @@
             <h2>룰렛 항목</h2>
             <span class="count-pill" id="countW">0개</span>
           </div>
-          <textarea class="input names" id="wItems" aria-label="룰렛 항목" placeholder="항목을 한 줄에 하나씩"></textarea>
+          <fieldset id="wItems"></fieldset>
           <div class="name-chips" id="chipsW" aria-hidden="true"></div>
           <label class="check"><input type="checkbox" id="wRemove"> 뽑힌 항목은 룰렛에서 빼기</label>
         </div>
@@ -270,7 +273,7 @@
           <span class="count-pill" id="countB">0명</span>
           <button class="btn small" id="sampleB" type="button">예시</button>
         </div>
-        <textarea class="input names" id="namesB" aria-label="이름 목록" placeholder="이름을 한 줄에 하나씩"></textarea>
+        <fieldset id="namesB"></fieldset>
         <div class="name-chips" id="chipsB" aria-hidden="true"></div>
       </div>
       <div class="panel">
@@ -310,11 +313,15 @@
   </main>
 
 <script src="../assets/common.js?v=b8e111b3"></script>
+<script src="../assets/name-rows.js?v=6480ef27"></script>
 <script src="logic.js?v=d38ec616"></script>
 <script>
 (function () {
   'use strict';
   var L = window.ToolsLogic;
+  NameRows(document.getElementById('namesA'), '참가자');
+  NameRows(document.getElementById('namesB'), '참가자');
+  NameRows(document.getElementById('wItems'), '항목');
   var $ = function (s) { return document.querySelector(s); };
   var COLORS = ['#ef4444', '#3b82f6', '#22a06b', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#64748b', '#84cc16'];
   var CANVAS_FONT = 'system-ui, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", "Noto Sans CJK KR", sans-serif';
@@ -611,7 +618,7 @@
     if (!b) return;
     if (playingAll) { b.textContent = '나머지 바로 보기'; b.disabled = false; }
     else if (all && any) { b.textContent = '모두 공개됨'; b.disabled = true; }
-    else { b.textContent = '▶ 한 명씩 전체 공개'; b.disabled = false; }
+    else { b.textContent = '전체 공개'; b.disabled = false; }
     $('#lCopy').hidden = !any;
   }
   function renderLadderChrome() {
@@ -635,9 +642,9 @@
     var h = '', i, c;
     for (i = 0; i < ln; i++) {
       c = COLORS[i % COLORS.length];
-      h += '<div class="lad-row"><span class="idx" style="color:' + c + '">' + (i + 1) + '</span>' +
+      h += '<div class="lad-row">' +
         '<input class="input ln" data-i="' + i + '" maxlength="16" placeholder="' + (i + 1) + '번" value="' + esc(lNames[i] || '') + '" aria-label="' + (i + 1) + '번 이름">' +
-        '<input class="input lr" data-i="' + i + '" maxlength="16" placeholder="' + (i === 0 ? '당첨' : '꽝') + '" value="' + esc(lRes[i] || '') + '" aria-label="' + (i + 1) + '번 결과"></div>';
+        '<input class="input lr" data-i="' + i + '" maxlength="16" placeholder="' + (i === 0 ? '당첨' : '꽝') + '" value="' + esc(lRes[i] || '') + '" aria-label="' + (i + 1) + '번 결과"><button class="btn l-remove" type="button" data-i="' + i + '" aria-label="' + (i + 1) + '번 행 삭제">−</button></div>';
     }
     $('#lIn').innerHTML = h;
   }
@@ -867,6 +874,7 @@
   }
   function setLn(n) {
     ln = clampInt(n, 2, 10, 4);
+    lNames = lNames.slice(0, ln); lRes = lRes.slice(0, ln);
     MG.store.set('tools.ladderN', ln);
     while (lNames.length < ln) lNames.push('');
     while (lRes.length < ln) lRes.push('꽝');
@@ -880,8 +888,7 @@
     while (lRes.length < ln) lRes.push('');
     MG.store.set('tools.ladderRes', lRes);
     drawLadderInputs();
-    renderLadderChrome();
-    syncListLabels();
+    rebuildLadder();
     if (currentTab === 'ladder') drawLadder();
   }
   $('#lIn').addEventListener('input', function (e) {
@@ -910,6 +917,22 @@
     var i = +b.getAttribute('data-i');
     if (traces[i]) runOne(i, { replay: true });
     else runOne(i);
+  });
+  function insertLadderRow(index) {
+    if (ln >= 10) { MG.toast('최대 10명까지 함께해요'); return; }
+    lNames.splice(index, 0, ''); lRes.splice(index, 0, '');
+    setLn(ln + 1);
+    $('#lIn').querySelectorAll('.ln')[index].focus();
+  }
+  $('#lAdd').onclick = function () { insertLadderRow(ln); };
+  $('#lIn').addEventListener('click', function (e) {
+    var b = e.target.closest('.l-remove'); if (!b) return;
+    if (ln <= 2) { MG.toast('참가자는 두 명 이상 필요해요'); return; }
+    var i = +b.dataset.i; lNames.splice(i, 1); lRes.splice(i, 1); setLn(ln - 1);
+  });
+  $('#lIn').addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' || e.isComposing || e.target.tagName !== 'INPUT') return;
+    e.preventDefault(); insertLadderRow(+e.target.dataset.i + 1);
   });
   $('#lMinus').onclick = function () { setLn(ln - 1); };
   $('#lPlus').onclick = function () { setLn(ln + 1); };
