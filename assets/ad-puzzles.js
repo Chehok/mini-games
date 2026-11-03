@@ -29,11 +29,11 @@
     }
     function celebrate(){
       $('board').classList.add('solved');
-      if(key==='pin-pull'||key==='screw-puzzle'){
+      {
         const banner=document.createElement('div');banner.className='puzzle-clear';banner.setAttribute('aria-hidden','true');
         const stars=document.createElement('span');stars.className='clear-stars';stars.textContent='★ ★ ★';banner.appendChild(stars);
-        const title=document.createElement('strong');title.textContent=key==='pin-pull'?'보석 수집 완료!':'공구함 정리 완료!';banner.appendChild(title);
-        const note=document.createElement('small');note.textContent='멋지게 해냈어요! 다음 보물도 찾아볼까요?';banner.appendChild(note);$('board').appendChild(banner);
+        const title=document.createElement('strong');title.textContent={'pin-pull':'보석 수집 완료!','screw-puzzle':'공구함 정리 완료!','water-sort':'색깔 정리 완료!','parking-jam':'모두 탈출했어요!','untangle':'매듭을 다 풀었어요!'}[key];banner.appendChild(title);
+        const note=document.createElement('small');note.textContent=key==='pin-pull'||key==='screw-puzzle'?'멋지게 해냈어요! 다음 보물도 찾아볼까요?':'멋지게 해냈어요! 다음 단계도 도전해요.';banner.appendChild(note);$('board').appendChild(banner);
       }
       if(motion())return;
       const layer=document.createElement('div');layer.className='puzzle-confetti';layer.setAttribute('aria-hidden','true');$('board').appendChild(layer);

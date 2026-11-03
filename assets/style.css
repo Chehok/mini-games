@@ -395,12 +395,10 @@ details.panel > summary { min-height: 44px; padding-block: 10px; }
   .btn:hover, .btn:active, .hub .card:hover { transform: none; }
 }
 
-/* Four hub tabs retain their full label on wider screens. */
-.tab-short { display: none; }
-#tab-ads { flex-grow: 1.8; }
+/* Tabs share the same labels on phones; only their decorative icons hide. */
+#tab-ads { flex-grow: 1.2; }
 @media (max-width: 600px) {
-  .tab-full, .hub-mode .tab-icon { display: none; }
-  .tab-short { display: inline; }
+  .hub-mode .tab-icon { display: none; }
   #tab-ads { flex-grow: 1; }
   .hub-mode { font-size: .8rem; }
 }

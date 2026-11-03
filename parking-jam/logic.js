@@ -13,9 +13,16 @@
     ['A.BB.C','A.DD.C','EE.F..','G..FHH','G.II.J','.KK..J'],
     ['AA.B.C','D..B.C','D.EE.F','GG.H.F','I..HJJ','I.KK..'],
     ['A.BB.C','A.DD.C','EE.FGG','H..F.I','H.JJ.I','KK.LL.'],
-    ['AA.B.C','D..B.C','D.EE.F','GG.H.F','II.HJJ','KK.LL.']
+    ['AA.B.C','D..B.C','D.EE.F','GG.H.F','II.HJJ','KK.LL.'],
+    ['AAAB.C','D..B.C','D.EEFF','GG.H..','II.HJJ','KK.LL.'],
+    ['AAB.CC','D.B.E.','D.FFE.','GGH.II','..H.J.','KKLLJ.'],
+    ['AAAB.C','D..B.C','D.EEFF','GG.HII','JJ.H.K','LLMM.K'],
+    ['AAB.CC','D.B.E.','DFF.EG','HHI..G','J.IKKG','J.LLMM'],
+    ['AAAB.C','DD.B.C','E.FFGG','E.H.II','JJH.KK','LLMMNN'],
+    ['AABCCC','D.B.EE','DFFGHH','II.GJK','LLMMJK','NNOOJK']
   ];
-  const directions=['---+-','-+----','--++---','+-+----','+-++--+-','+--+-----','+---+++---','++--+-++--','----+-----+','++++-++++--','+---++++-+++','++++-+++----'];
+  const directions=['---+-','-+----','--++---','+-+----','+-++--+-','+--+-----','+---+++---','++--+-++--','----+-----+','++++-++++--','+---++++-+++','++++-+++----',
+    '++++--++----','++++--+++-++','++++---+-++++','-+--+++-+-+--','+++++--+-++---','+++++-+++--++++'];
   function level(n) {
     const rows = designs[(n-1)%designs.length], letters = [...new Set(rows.join('').replace(/\./g,''))];
     return letters.map((letter,i) => {

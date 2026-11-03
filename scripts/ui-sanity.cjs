@@ -57,6 +57,7 @@ function contrast(fg, bg) {
   await cdp('Page.enable'); await cdp('Runtime.enable'); await cdp('Log.enable');
   const base='http://127.0.0.1:' + server.address().port + '/mini-games/';
   const puzzlePages=['pin-pull','water-sort','screw-puzzle','parking-jam','untangle'];
+  const denseLevels={'pin-pull':18,'water-sort':25,'screw-puzzle':18,'parking-jam':18,'untangle':25};
   const pages=[...new Set(['', ...puzzlePages, ...fs.readdirSync(root).filter(d=>fs.existsSync(path.join(root,d,'index.html')))])];
   for (const width of [320,360,390,1280]) for (const theme of ['light','dark']) {
     await cdp('Emulation.setDeviceMetricsOverride',{width,height:width===390?844:900,deviceScaleFactor:width===390?2:1,mobile:false});
@@ -100,7 +101,10 @@ function contrast(fg, bg) {
       if(puzzlePages.includes(page)) {
         assert(await evaluate(`!!document.querySelector('.puzzle-settings select') && document.querySelector('.sound-toggle').getAttribute('aria-pressed')==='false' && document.querySelector('#status').getAttribute('aria-live')==='polite'`), page+': shared HUD, silent default and live status');
         if(page==='pin-pull') assert(await evaluate(`document.querySelector('canvas').width >= document.querySelector('canvas').clientWidth * devicePixelRatio - 3`), 'pin canvas DPR');
-        if(width===390&&['pin-pull','screw-puzzle'].includes(page)) assert(await evaluate(`document.querySelector('#next').getBoundingClientRect().bottom<=innerHeight`),page+': board, HUD and actions fit 390×844');
+        if(width===390) assert(await evaluate(`document.querySelector('#next').getBoundingClientRect().bottom<=innerHeight`),page+': board, HUD and actions fit 390×844');
+        if(page==='water-sort') assert(await evaluate(`document.querySelectorAll('.tube-glass').length===document.querySelectorAll('.tube').length && Array.from(document.querySelectorAll('.water')).every(w=>w.textContent.trim()) && !!document.querySelector('.tutorial-hand')`),'glass tubes, permanent symbols and first-pour tutorial');
+        if(page==='parking-jam') assert(await evaluate(`document.querySelectorAll('.car-roof').length===document.querySelectorAll('.car').length && !!document.querySelector('.parking-curb') && !!document.querySelector('.exit-port') && document.querySelector('.puzzle-settings select').options.length===18 && document.querySelector('#scene-meter').textContent.includes('탈출 0 /')`),'painted lot, detailed cars, exits, 18 stages and exited meter');
+        if(page==='untangle') assert(await evaluate(`!!document.querySelector('.rope-base') && !!document.querySelector('.crossing-point') && document.querySelectorAll('.graph-node').length===4 && !!document.querySelector('.peg-destination')`),'shaded ropes, crossing glows and four-peg tutorial');
         if([320,390,1280].includes(width)) {
           const png=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:true,clip:{x:0,y:0,width,height:await evaluate('document.documentElement.scrollHeight'),scale:1}});
           fs.writeFileSync(path.join(profile,`${page}-${width}-${theme}.png`),Buffer.from(png.data,'base64'));
@@ -123,6 +127,7 @@ function contrast(fg, bg) {
         assert(await evaluate('document.documentElement.scrollWidth <= innerWidth'), 'hub tab overflow');
         const pair=await evaluate(`(()=>{const e=document.querySelector('[aria-selected="true"]');const s=getComputedStyle(e);return [s.color,s.backgroundColor];})()`);
         assert(contrast(...pair)>=4.5, 'hub '+tab+' contrast');
+        if(tab==='ads') assert(await evaluate(`document.querySelector('#tab-ads').getAttribute('aria-label')==='어? 그 게임' && document.querySelector('#tab-ads .tab-icon').textContent.trim()==='👀' && document.querySelector('#tab-ads').textContent.trim()==='👀 어? 그 게임' && document.querySelector('#panel-ads .section-title').textContent==='어? 그 게임'`),'new category name on desktop and phone');
       }
       if(page==='tools') for(const tab of ['ladder','wheel','draw']) {
         await evaluate(`document.querySelector('#btn-${tab}').click()`);
@@ -144,18 +149,34 @@ function contrast(fg, bg) {
     await cdp('Emulation.setEmulatedMedia',{features:[{name:'prefers-color-scheme',value:theme},{name:'prefers-reduced-motion',value:'reduce'}]});
     for(const page of puzzlePages) {
       await loaded(base+page+'/');
-      await evaluate(`MG.store.set('${page}.level',${page==='water-sort'?25:['pin-pull','screw-puzzle'].includes(page)?18:12})`);
+      await evaluate(`MG.store.set('${page}.level',${denseLevels[page]})`);
       await loaded(base+page+'/');
       assert(await evaluate('document.documentElement.scrollWidth <= innerWidth'), `${page}: dense overflow at ${width} ${theme}`);
       assert(await evaluate(`Array.from(document.querySelectorAll('#board button')).every(b=>{const r=b.getBoundingClientRect();return r.width>=44 && r.height>=44;})`), page+': dense touch targets');
       if(page==='pin-pull') assert(await evaluate(`document.querySelector('canvas').width >= document.querySelector('canvas').clientWidth * devicePixelRatio - 3`), 'dense pin canvas DPR');
-      if(width===390&&['pin-pull','screw-puzzle'].includes(page)) assert(await evaluate(`document.querySelector('#next').getBoundingClientRect().bottom<=innerHeight`),page+': late-stage actions fit 390×844');
+      if(width===390) assert(await evaluate(`document.querySelector('#next').getBoundingClientRect().bottom<=innerHeight`),page+': late-stage actions fit 390×844');
       if(page==='water-sort') assert.equal(await evaluate(`document.querySelectorAll('.tube').length`),12,'ten colors plus two empty tubes');
+      if(page==='untangle') assert.equal(await evaluate(`document.querySelectorAll('.graph-node').length`),10,'later stages cap at ten pegs');
       const png=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:true,clip:{x:0,y:0,width,height:await evaluate('document.documentElement.scrollHeight'),scale:1}});
       fs.writeFileSync(path.join(profile,`${page}-dense-${width}-${theme}.png`),Buffer.from(png.data,'base64'));
       await evaluate(`document.querySelector('.sound-toggle').click(); document.querySelector('#restart').click()`);
       assert(await evaluate(`document.querySelector('#moves').textContent==='0' && document.querySelector('.sound-toggle').getAttribute('aria-pressed')==='true'`),page+': restart resets moves and retains in-session sound preference');
       await evaluate(`MG.store.set('${page}.level',1)`);
+    }
+  }
+  // Keep the new visual states covered when running this script on a PC with Chrome.
+  for(const page of ['water-sort','parking-jam','untangle']) {
+    await loaded(base+page+'/');
+    assert.equal(await evaluate(`getComputedStyle(document.querySelector('.tutorial-hand')).animationName`),'none',page+': reduced motion also stops the tutorial');
+    if(page==='water-sort') {
+      await evaluate(`(async()=>{for(const [a,b] of WaterLogic.generate(1).solution){document.querySelectorAll('.tube')[a].click();document.querySelectorAll('.tube')[b].click();await new Promise(r=>setTimeout(r,0));}})()`);
+      assert(await evaluate(`document.querySelectorAll('.tube-cork').length===2 && !!document.querySelector('.puzzle-clear') && !document.querySelector('#next').disabled`),'water corks and stars banner');
+    }else if(page==='parking-jam') {
+      await evaluate(`(async()=>{const cars=ParkingLogic.level(1);while(cars.some(Boolean)){const i=cars.findIndex((c,i)=>c&&ParkingLogic.canExit(cars,i));document.querySelector('.car[data-index="'+i+'"]').click();await new Promise(r=>setTimeout(r,0));cars[i]=null;}})()`);
+      assert(await evaluate(`!document.querySelector('.car') && !!document.querySelector('.puzzle-clear') && document.querySelector('#scene-meter').textContent.includes('탈출 5 / 5')`),'all cars exit with final count and stars');
+    }else {
+      await evaluate(`document.querySelector('#extras button').click()`);
+      assert(await evaluate(`!!document.querySelector('.puzzle-clear') && !document.querySelector('.crossing-point') && getComputedStyle(document.querySelector('.rope-color')).stroke==='rgb(239, 189, 72)'`),'solved ropes are gold with stars');
     }
   }
   await cdp('Emulation.setEmulatedMedia',{features:[{name:'prefers-color-scheme',value:'light'}]});
@@ -210,7 +231,7 @@ function contrast(fg, bg) {
   })`);
   assert(counts.parses<=1 && counts.measures===0 && counts.sizes===0, 'roulette frame cache: '+JSON.stringify(counts));
   assert.equal(errors.length,0,JSON.stringify(errors));
-  console.log(`PASS: ${pages.length} pages × 360/390/1280px × light/dark, Wordle + all five puzzles at 320px, dense puzzle stages at 320/390/1280px and DPR 2, silent HUD/restart, contrast, controls, mines zoom, tabs, dialog focus/Tab/Escape, game labels, long names, roulette cache`);
+  console.log(`PASS: ${pages.length} pages × 360/390/1280px × light/dark, Wordle + all five puzzles at 320px, dense puzzle stages at 320/390/1280px and DPR 2, all puzzle actions fit 390×844, new category name, glass/corks, detailed cars/exit meter, ropes/glows/gold, reduced-motion tutorials, stars banners, silent HUD/restart, contrast, controls, mines zoom, tabs, dialog focus/Tab/Escape, game labels, long names, roulette cache`);
   console.log('PASS: every page has resolving apple-touch-icon/favicon/manifest links under /mini-games/, including manifest icons and launch scope');
   console.log('Screenshots:',profile);
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(()=>{if(ws)ws.close();if(child)child.kill();server.close();});
