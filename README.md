@@ -77,6 +77,14 @@ tools/logic.js      진행 도구 계산 (사다리 순열, 룰렛 각도, 팀 �
 */words.js          게임별 단어·문제 데이터 (wordle, chosung, charades, speed, taboo, liar, telepathy, ox/questions.js)
 ```
 
+## 홈 화면 추가 · 오프라인 사용
+
+HTTPS 또는 localhost에서 모든 페이지가 `assets/pwa.js`로 루트 `sw.js`를 등록해요. GitHub Pages의 `/mini-games/` 경로도 지원해요. 지원되는 Chrome에서는 설치 가능할 때 허브에 **홈 화면에 추가** 버튼이 나타나고, iOS Safari에서는 공유 메뉴 안내를 보여줘요. 설치된 앱에서는 버튼을 숨겨요.
+
+첫 온라인 접속에서 서비스 워커 설치가 완료되면 허브와 모든 게임·로컬 리소스를 오프라인에서도 사용할 수 있어요. 외부 Icebreaker 링크와 GoatCounter 통계는 네트워크가 필요하고 캐시하지 않아요. 페이지는 네트워크 우선, 로컬 리소스는 캐시 응답 후 갱신해요.
+
+페이지·리소스를 변경할 때 `sw.js`의 `CACHE_NAME` 버전을 올려요. 게임이나 리소스를 추가하면 `PRECACHE`에도 상대 경로를 넣고 `node scripts/pwa-sanity.cjs`로 누락을 검사해요. 기존 `?v=` 스탬프도 계속 갱신해요.
+
 ## 로컬에서 실행
 
 빌드가 필요 없어요. 간단한 정적 서버만 있으면 돼요. (폴더 링크가 `index.html`로 연결되려면 서버가 필요해요.)
