@@ -402,3 +402,7 @@ details.panel > summary { min-height: 44px; padding-block: 10px; }
   #tab-ads { flex-grow: 1; }
   .hub-mode { font-size: .8rem; }
 }
+
+/* Optional PWA action in the hub header. */
+.install-button { margin-top: 16px; border-radius: 999px; }
+.install-button[hidden] { display: none; }
