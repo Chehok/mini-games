@@ -8,6 +8,7 @@ const files = fs.readdirSync(root, { recursive: true }).filter(file =>
 (async () => {
   const handlers = {}, entries = new Map(), deleted = [];
   const scope = 'https://example.test/mini-games/';
+  const currentCache = read('sw.js').match(/const CACHE_NAME = '([^']+)'/)[1];
   const cache = {
     addAll: async requests => { for (const r of requests) entries.set(r.url, new Response('precache')); },
     match: async (url, options) => { assert(options.ignoreSearch); return entries.get(url)?.clone(); },
@@ -18,7 +19,7 @@ const files = fs.readdirSync(root, { recursive: true }).filter(file =>
     self: { registration: { scope }, location: new URL(scope),
       addEventListener: (name, fn) => handlers[name] = fn,
       skipWaiting: async () => {}, clients: { claim: async () => {} } },
-    caches: { open: async () => cache, keys: async () => ['mini-games-v0', 'mini-games-v1', 'other-site'],
+    caches: { open: async () => cache, keys: async () => ['mini-games-v0', currentCache, 'other-site'],
       delete: async name => deleted.push(name) },
     fetch: async () => { fetches++; if (offline) throw Error('offline'); return new Response('fresh'); }
   });
