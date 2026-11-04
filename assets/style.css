@@ -403,6 +403,11 @@ details.panel > summary { min-height: 44px; padding-block: 10px; }
   .hub-mode { font-size: .8rem; }
 }
 
-/* Optional PWA action in the hub header. */
-.install-button { margin-top: 16px; border-radius: 999px; }
+/* Optional PWA action, pinned clear of the hub heading and safe areas. */
+.install-button {
+  position: fixed; top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); z-index: 100;
+  min-width: 0; min-height: 0; padding: 7px 11px; border-radius: 999px; font-size: 13px;
+  box-shadow: var(--shadow-sm);
+}
+.hub-page .hub { padding-top: 78px; }
 .install-button[hidden] { display: none; }
