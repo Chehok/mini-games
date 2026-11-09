@@ -143,8 +143,8 @@ for (const dir of ['pin-pull','water-sort','screw-puzzle','parking-jam','untangl
 for (const file of ['assets/ad-puzzles.js']) new vm.Script(read(file),{filename:file});
 const W=ctx.window.WaterLogic, Park=ctx.window.ParkingLogic, Screw=ctx.window.ScrewLogic, U=ctx.window.UntangleLogic, Pin=ctx.window.PinLogic;
 assert(!/광고에서 본 그 게임|광고 게임/.test(read('index.html')+read('README.md')),'hub category uses its new name');
-assert(read('index.html').includes('aria-label="어? 그 게임"><span class="tab-icon" aria-hidden="true">👀 </span>어? 그 게임'),'hub shares the icon and label structure');
-for(const dir of ['pin-pull','water-sort','screw-puzzle','parking-jam','untangle'])assert(read(dir+'/index.html').includes('href="../#ads">← 어? 그 게임'),'back link preserves the legacy tab hash');
+assert(read('index.html').includes('><span class="tab-icon" aria-hidden="true">👀 </span>어? 그 게임'),'hub shares the icon and label structure');
+for(const dir of ['pin-pull','water-sort','screw-puzzle','parking-jam','untangle'])assert(read(dir+'/index.html').includes('href="../puzzles/">← 어? 그 게임'),'back link opens the puzzle category');
 function bfs(start, key, goal, neighbors, limit=200000) {
   const queue=[start],seen=new Set([key(start)]);
   for(let head=0;head<queue.length;head++) {

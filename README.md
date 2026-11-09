@@ -6,7 +6,7 @@
 
 ## 게임 목록
 
-허브(`index.html`)는 **1인용 / 다인용 / 레크레이션 / 어? 그 게임** 탭으로 나뉘어 있어요. 마지막으로 본 탭을 기억하고, `#solo` · `#party` · `#tools` · `#ads` 주소로 그 탭을 바로 열 수 있어요(주소의 해시가 저장된 탭보다 우선).
+1인용 (`./`), 다인용 (`party/`), 레크레이션 (`recreation/`), 어? 그 게임 (`puzzles/`)은 각각 독립 페이지예요. 기존 `#solo`, `#party`, `#tools`, `#ads` 주소도 해당 페이지로 연결돼요.
 
 ### 1인용
 
@@ -64,7 +64,10 @@
 ## 폴더 구조
 
 ```
-index.html          허브 페이지 (1인용 / 다인용 / 레크레이션 / 어? 그 게임 탭)
+index.html          1인용 목록
+party/index.html    다인용 목록
+recreation/index.html  레크레이션 목록
+puzzles/index.html  어? 그 게임 목록
 assets/style.css    공통 스타일 (색상 변수, 헤더, 버튼, 팝업, 칩, 팀 라운드 UI, 다크 모드)
 assets/common.js    공통 유틸 (MG.store, MG.Timer, MG.toast, MG.dialog, MG.rng, MG.shuffle,
                     MG.beep, MG.vibrate, MG.wake(화면 꺼짐 방지), MG.copy, MG.share)
@@ -109,7 +112,7 @@ python3 -m http.server 8000
        <span class="spacer"></span>
      </header>
      ```
-3. 허브(`/index.html`)의 알맞은 구역(1인용 / 다인용 / 레크레이션 / 어? 그 게임) `.cards` 안에 카드 한 장을 추가해요.
+3. 해당 대메뉴 페이지의 `.cards` 안에 카드 한 장을 추가해요.
    ```html
    <a class="card" href="snake/" style="--c:#14b8a6">
      <span class="emoji" aria-hidden="true">🐍</span>

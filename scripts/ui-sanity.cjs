@@ -123,12 +123,10 @@ function contrast(fg, bg) {
         assert(await evaluate('document.querySelector(".m").getBoundingClientRect().width >= 32'), 'mines cell size');
         assert(await evaluate('document.documentElement.scrollWidth <= innerWidth'), 'mines overflow');
       }
-      if(!page) for(const tab of ['party','tools','ads']) {
-        await evaluate(`document.querySelector('#tab-${tab}').click()`);
-        assert(await evaluate('document.documentElement.scrollWidth <= innerWidth'), 'hub tab overflow');
-        const pair=await evaluate(`(()=>{const e=document.querySelector('[aria-selected="true"]');const s=getComputedStyle(e);return [s.color,s.backgroundColor];})()`);
-        assert(contrast(...pair)>=4.5, 'hub '+tab+' contrast');
-        if(tab==='ads') assert(await evaluate(`document.querySelector('#tab-ads').getAttribute('aria-label')==='어? 그 게임' && document.querySelector('#tab-ads .tab-icon').textContent.trim()==='👀' && document.querySelector('#tab-ads').textContent.trim()==='👀 어? 그 게임' && document.querySelector('#panel-ads .section-title').textContent==='어? 그 게임'`),'new category name on desktop and phone');
+      if(['','party','recreation','puzzles'].includes(page)) {
+        const pair=await evaluate(`(()=>{const e=document.querySelector('.hub-mode[aria-current="page"]');const s=getComputedStyle(e);return [s.color,s.backgroundColor];})()`);
+        assert(contrast(...pair)>=4.5, 'category '+page+' contrast');
+        assert(await evaluate(`document.querySelector('.hub-mode[aria-current="page"]').href === location.href`), 'current category URL');
       }
       if(page==='tools') for(const tab of ['ladder','wheel','draw']) {
         await evaluate(`document.querySelector('#btn-${tab}').click()`);

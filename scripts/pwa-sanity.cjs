@@ -3,7 +3,7 @@ const fs = require('node:fs'), path = require('node:path'), vm = require('node:v
 const assert = require('node:assert/strict');
 const root = path.resolve(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
-const files = fs.readdirSync(root, { recursive: true }).filter(file =>
+const files = fs.readdirSync(root, { recursive: true }).map(file => file.split(path.sep).join('/')).filter(file =>
   !/^(?:\.git|scripts|node_modules)\//.test(file) && /\.(?:html|css|js|png|svg|webmanifest)$/.test(file) && file !== 'sw.js');
 (async () => {
   const handlers = {}, entries = new Map(), deleted = [];
