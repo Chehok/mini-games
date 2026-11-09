@@ -79,12 +79,16 @@ function mount(folder, exports = '') {
   host.value='한 명';g.el('generate').onclick();assert.equal(g.context.test.rounds().length,0);assert(g.notices.length);
 }
 {
-  const html=fs.readFileSync('index.html','utf8');
-  const party=/<section[^>]*id="panel-party"[\s\S]*?<\/section>/.exec(html)[0];
-  const rec=/<section[^>]*id="panel-tools"[\s\S]*?<\/section>/.exec(html)[0];
+  const party=fs.readFileSync('party/index.html','utf8');
+  const rec=fs.readFileSync('recreation/index.html','utf8');
   assert.equal((party.match(/<a class="card/g)||[]).length,3);
-  for(const folder of ['charades','speed','taboo','ox','telepathy','updown','hunminjeongeum','rps-bracket','tools']) assert(rec.includes('href="'+folder+'/"'));
-  assert(html.includes('data-tab="tools"')); // Preserve existing hashes and saved hub.tab values.
+  for(const folder of ['charades','speed','taboo','ox','telepathy','updown','hunminjeongeum','rps-bracket','tools']) assert(rec.includes('href="../'+folder+'/"'));
+  for(const folder of ['', 'party/', 'recreation/', 'puzzles/']) {
+    const html=fs.readFileSync(folder+'index.html','utf8');
+    assert.equal((html.match(/class="hub-mode"/g)||[]).length,4);
+    assert.equal((html.match(/aria-current="page"/g)||[]).length,1);
+    assert.equal((html.match(/class="hub-section"/g)||[]).length,1);
+  }
 }
 {
   // Results stay public while the middle is covered; traced paths use the upper canvas.
