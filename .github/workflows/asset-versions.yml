@@ -5,7 +5,7 @@ name: Asset versions
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, stage]
 
 jobs:
   check:

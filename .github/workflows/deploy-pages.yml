@@ -1,0 +1,62 @@
+# main과 stage를 합쳐 github-pages 브랜치에 올린다.
+#   /mini-games/        ← main  (운영)
+#   /mini-games/stage/  ← stage (확인용)
+# Settings → Pages 의 Source는 "Deploy from a branch: github-pages / (root)" 여야 한다.
+name: Deploy Pages (main + stage)
+
+on:
+  push:
+    branches: [main, stage]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: deploy-pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: main, path: main }
+      - uses: actions/checkout@v4
+        with: { ref: stage, path: stage }
+
+      - name: Assemble site
+        run: |
+          set -euo pipefail
+          cp -a main site
+          rm -rf site/.git site/stage
+          cp -a stage site/stage
+          rm -rf site/stage/.git site/stage/.github
+
+          # stage: 서비스워커 캐시를 쓰지 않는다 (푸시하면 바로 새 내용이 보이도록).
+          cat > site/stage/sw.js <<'SW'
+          // stage 전용: 캐시하지 않는 서비스워커. 운영 서비스워커가 stage 주소를 가로채지 않게 한다.
+          self.addEventListener('install', () => self.skipWaiting());
+          self.addEventListener('activate', event => event.waitUntil(self.clients.claim()));
+          SW
+
+          # stage: 방문 통계 제외 + 검색 제외 + 화면 구석에 STAGE 표시 + 앱 이름 구분
+          find site/stage -name '*.html' -print0 | xargs -0 perl -0pi -e '
+            s{<script data-goatcounter=[^>]*>\s*</script>\s*}{}g;
+            s{</head>}{<meta name="robots" content="noindex"></head>};
+            s{</body>}{<div aria-hidden="true" style="position:fixed;left:8px;bottom:8px;z-index:2147483647;pointer-events:none;padding:2px 8px;border-radius:999px;background:#f97316;color:#fff;font:700 11px/1.6 system-ui,sans-serif;opacity:.85">STAGE</div></body>};
+          '
+          sed -i 's/"name": "미니게임"/"name": "미니게임 (stage)"/; s/"short_name": "미니게임"/"short_name": "미니게임 S"/' site/stage/manifest.webmanifest
+
+          touch site/.nojekyll
+
+      - name: Push to github-pages
+        run: |
+          set -euo pipefail
+          cd site
+          git init -q -b github-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Deploy main@$(git -C ../main rev-parse --short HEAD) + stage@$(git -C ../stage rev-parse --short HEAD)"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" github-pages
