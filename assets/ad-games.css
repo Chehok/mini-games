@@ -251,3 +251,38 @@ body[data-game="water-sort"] .puzzle-actions .btn { min-width: 0; padding-inline
 }
 .screw-number { position: absolute; z-index: 2; left: -6px; bottom: -4px; display: grid; place-items: center; min-width: 17px; height: 17px; border: 1px solid #d4e5f4; border-radius: 50%; background: #233c58; color: #fff; font-size: .58rem; font-weight: 900; }
 .shape-triangle .plate-label,.shape-circle .plate-label { left: 45%; top: 7%; }
+
+/* Shared chrome on the new shelf style: flat readouts, chunky selects, readable notes. */
+.ad-game .stat, .polished .stat { background: var(--surface); border: 2px solid var(--border); border-radius: 12px; }
+.polished .stat .label { font-size: .78rem; }
+.polished .stat .value { font-size: 1.05rem; font-weight: 900; }
+.puzzle-settings { font-size: .88rem; font-weight: 800; color: var(--text-2); }
+.puzzle-settings select {
+  border: 2px solid var(--border); border-radius: 12px; box-shadow: 0 2px 0 var(--edge);
+  font-weight: 800; padding: 6px 8px; min-height: 42px;
+}
+.sound-toggle { font-size: .85rem; padding: 6px 12px; }
+.level-track { height: 6px; background: var(--seg-bg); }
+.level-track span, .polished .level-track span { background: var(--accent); }
+.polished .level-track { height: 6px; }
+.polished .puzzle-status { font-size: .9rem; color: var(--accent-ink); }
+.polished .puzzle-actions .btn { font-size: .95rem; padding: 9px 10px; }
+.polished .play-help { font-size: .8rem; color: var(--muted); }
+.mechanic-hint {
+  background: var(--accent-soft); color: var(--text); border: 2px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+  border-left: 6px solid var(--accent); font-size: .86rem; font-weight: 600; padding: 6px 8px 6px 10px;
+}
+.mechanic-next { background: var(--surface); color: var(--accent-ink); border: 2px solid var(--border); box-shadow: 0 2px 0 var(--edge); }
+.box-queue { font-size: .78rem; }
+.move-budget { font-size: .82rem; color: var(--accent-ink); }
+@media (prefers-color-scheme: dark) {
+  .mechanic-hint { background: var(--accent-soft); color: var(--text); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); border-left-color: var(--accent); }
+  .move-budget { color: var(--accent-ink); }
+}
+/* Keep the next-level button on screen on a 390×844 phone. */
+.polished .site-header { padding-block: 5px; }
+.polished .site-header .back { min-height: 36px; padding-block: 4px; }
+.polished .mechanic-hint { font-size: .82rem; padding-block: 4px; margin-bottom: 6px; }
+.polished .puzzle-actions .btn { min-height: 44px; padding-block: 7px; }
+.polished .puzzle-status { min-height: 34px; margin-top: 6px; }
+.polished.ad-game .game { padding-top: 6px; }

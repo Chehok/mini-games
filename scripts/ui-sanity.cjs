@@ -37,7 +37,9 @@ async function loaded(url) {
   throw new Error('Navigation timeout: ' + url + ' ' + JSON.stringify(await evaluate('({url:location.href,ready:document.readyState,text:document.body && document.body.innerText.slice(0,300)})')));
 }
 function contrast(fg, bg) {
-  const lum = color => color.match(/[\d.]+/g).slice(0,3).map(Number).map(c=>{c/=255;return c<=0.04045?c/12.92:((c+0.055)/1.055)**2.4;}).reduce((s,c,i)=>s+c*[0.2126,0.7152,0.0722][i],0);
+  // color-mix() resolves to color(srgb r g b) with 0–1 channels; rgb() uses 0–255.
+  const channels = color => { const v=color.match(/[\d.]+/g).map(Number); return color.startsWith('color(') ? v.slice(0,3).map(c=>c*255) : v.slice(0,3); };
+  const lum = color => channels(color).map(c=>{c/=255;return c<=0.04045?c/12.92:((c+0.055)/1.055)**2.4;}).reduce((s,c,i)=>s+c*[0.2126,0.7152,0.0722][i],0);
   const a=lum(fg),b=lum(bg); return (Math.max(a,b)+0.05)/(Math.min(a,b)+0.05);
 }
 (async () => {

@@ -12,10 +12,10 @@
   <meta name="apple-mobile-web-app-title" content="미니게임">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
-  <title>초성 퀴즈 · Mini Games</title>
+  <title>초성 퀴즈 · 미니게임</title>
   <meta name="description" content="초성만 보고 정답을 맞혀 보세요. 혼자서 10문제 도전, 여럿이서 한 화면으로 즐기는 파티 모드. 성경 퀴즈팩도 있어요.">
   <meta name="color-scheme" content="light dark">
-  <link rel="stylesheet" href="../assets/style.css?v=39487152">
+  <link rel="stylesheet" href="../assets/style.css?v=34da9e4e">
   <style>
     .modebar { display: flex; justify-content: center; margin-bottom: 12px; }
     .cs { display: flex; flex-wrap: wrap; justify-content: center; gap: .55em .9em; margin: 0; --ts: 2.6rem; }
@@ -153,7 +153,7 @@
     </section>
   </main>
 
-<script src="../assets/common.js?v=b8e111b3"></script>
+<script src="../assets/common.js?v=8c4620cf"></script>
 <script src="words.js?v=43aebd93"></script>
 <script>
 (function () {
@@ -255,7 +255,7 @@
     $('solo').hidden = mode !== 'solo'; $('party').hidden = mode !== 'party'; $('catPanel').hidden = false;
     if (push) { try { history.replaceState(null, '', '?mode=' + mode); } catch (e) { /* ignore */ } }
     if (mode === 'party') { stopSolo(); if (!pq || previous !== mode) nextParty(); } else { clearInterval(pTick); }
-    document.title = '초성 퀴즈 · Mini Games';
+    document.title = '초성 퀴즈 · 미니게임';
   }
   // 함께(팀전) 모드는 레크리에이션 사이트로 옮겼어요.
   var PARTY_URL = 'https://recreation-cmx.pages.dev/chosung/?mode=party';

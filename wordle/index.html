@@ -12,10 +12,10 @@
   <meta name="apple-mobile-web-app-title" content="미니게임">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
-  <title>워들 · Mini Games</title>
+  <title>워들 · 미니게임</title>
   <meta name="description" content="영어 5글자 단어를 6번 안에 맞히는 워들. 매일 바뀌는 오늘의 단어와 무한 모드, 통계와 결과 공유를 지원해요.">
   <meta name="color-scheme" content="light dark">
-  <link rel="stylesheet" href="../assets/style.css?v=39487152">
+  <link rel="stylesheet" href="../assets/style.css?v=34da9e4e">
   <style>
     :root { --c-correct: #237a43; --c-present: #856000; --c-absent: #626675; --tile-border: #d3d6e2; }
     @media (prefers-color-scheme: dark) { :root { --c-absent: #3b3f52; --tile-border: #555b74; } }
@@ -42,16 +42,16 @@
     .kb .krow { display: flex; min-width: 0; gap: 4px; justify-content: center; }
     #kb .key { min-width: 0; }
     .key {
-      flex: 1 1 0; height: 48px; padding: 0; border: 0; border-radius: 8px; background: var(--surface-2); color: var(--text);
-      font-weight: 700; font-size: 1rem; text-transform: uppercase; touch-action: manipulation; box-shadow: 0 1px 0 rgba(0,0,0,.15);
+      flex: 1 1 0; height: 50px; padding: 0; border: 2px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--text);
+      font-weight: 800; font-size: 1.05rem; text-transform: uppercase; touch-action: manipulation; box-shadow: 0 3px 0 var(--edge);
     }
     .key.wide { flex: 1.5 1 0; font-size: .8rem; }
-    .key:active { filter: brightness(.9); }
+    .key:active { transform: translateY(3px); box-shadow: none; }
     .modebar { display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; margin-bottom: 4px; }
     .modebar .btn { padding: 8px 12px; }
     .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 12px 0; }
     .stats-grid b { display: block; font-size: 1.5rem; }
-    .stats-grid span { font-size: .72rem; color: var(--muted); }
+    .stats-grid span { font-size: .8rem; color: var(--muted); }
     .dist { text-align: left; margin: 8px 0; }
     .dist div { display: flex; align-items: center; gap: 6px; margin: 3px 0; font-size: .85rem; }
     .dist i { display: block; min-width: 20px; background: var(--c-absent); color: #fff; font-style: normal; padding: 1px 6px; border-radius: 4px; text-align: right; font-weight: 700; }
@@ -86,7 +86,7 @@
     <p class="sr-only" id="wordleStatus" role="status" aria-live="polite"></p>
   </main>
 
-<script src="../assets/common.js?v=b8e111b3"></script>
+<script src="../assets/common.js?v=8c4620cf"></script>
 <script src="words.js?v=8c340e23"></script>
 <script>
 (function () {
@@ -263,7 +263,7 @@
   }
 
   function shareText() {
-    var head = '🔤 Mini Games 워들 ' + (mode === 'daily' ? '#' + (dayNum(today) - dayNum(EPOCH) + 1) + ' ' : '무한 ') + (won ? guesses.length : 'X') + '/' + MAX;
+    var head = '🔤 미니게임 워들 ' + (mode === 'daily' ? '#' + (dayNum(today) - dayNum(EPOCH) + 1) + ' ' : '무한 ') + (won ? guesses.length : 'X') + '/' + MAX;
     var map = { correct: '🟩', present: '🟨', absent: '⬛' };
     var lines = guesses.map(function (g) { return evaluate(g, answer).map(function (s) { return map[s]; }).join(''); });
     return head + '\n' + lines.join('\n');

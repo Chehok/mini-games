@@ -79,7 +79,7 @@ python3 -m http.server 8000
 2. 기존 게임 페이지를 복사해서 시작하면 편해요. 필수 요소는 다음과 같아요.
    - `<meta name="viewport">`, `<title>`, `<meta name="description">`
    - `<link rel="stylesheet" href="../assets/style.css">` 와 `<script src="../assets/common.js"></script>` (**상대 경로**만 사용!)
-   - `<body data-game="snake">` — 게임별 포인트 색상은 `assets/style.css`의 `body[data-game="..."] { --accent: ... }` 에 한 줄 추가해요.
+   - `<body data-game="snake">` — 게임별 색은 `assets/style.css`의 게임 색 목록(`[data-game="..."] { --accent: ... }`)에 한 줄 추가하고, 허브 카드에도 같은 `data-game`을 달아요. 자세한 규칙은 [디자인 토큰](docs/design-tokens.md)에 있어요.
    - 공통 헤더:
      ```html
      <header class="site-header">

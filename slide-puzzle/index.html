@@ -12,10 +12,10 @@
   <meta name="apple-mobile-web-app-title" content="미니게임">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
-  <title>슬라이드 퍼즐 · Mini Games</title>
+  <title>슬라이드 퍼즐 · 미니게임</title>
   <meta name="description" content="타일을 밀어 숫자를 순서대로 맞추는 슬라이드 퍼즐. 3x3, 4x4, 5x5 크기를 항상 풀 수 있게 섞어 드려요.">
   <meta name="color-scheme" content="light dark">
-  <link rel="stylesheet" href="../assets/style.css?v=39487152">
+  <link rel="stylesheet" href="../assets/style.css?v=34da9e4e">
   <style>
     .wrap { container-type: inline-size; width: min(100%, 440px); margin: 0 auto; }
     .board {
@@ -31,7 +31,7 @@
     .tile > span {
       position: absolute; inset: 1.1cqw; border-radius: 10px; display: flex; align-items: center; justify-content: center;
       background: var(--accent); color: var(--accent-text); font-weight: 800; font-size: calc(18cqw / var(--n) * 1.9);
-      box-shadow: 0 2px 0 rgba(0,0,0,.18); transition: background .2s, filter .2s;
+      box-shadow: inset 0 -4px 0 var(--accent-edge); transition: background .2s, filter .2s;
     }
     .tile.ok > span { filter: brightness(1.15) saturate(1.1); }
     .tile:hover > span { filter: brightness(1.1); }
@@ -63,7 +63,7 @@
     <p class="hint">타일을 탭하거나 방향키로 밀어 보세요. (방향키 = 타일이 움직이는 방향)</p>
   </main>
 
-<script src="../assets/common.js?v=b8e111b3"></script>
+<script src="../assets/common.js?v=8c4620cf"></script>
 <script>
 (function () {
   'use strict';

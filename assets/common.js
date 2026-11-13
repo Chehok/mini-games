@@ -1,4 +1,4 @@
-/* Mini Games — shared helpers (plain JS, no dependencies) */
+/* 미니게임 — shared helpers (plain JS, no dependencies) */
 (function () {
   'use strict';
   var MG = {};
@@ -166,7 +166,12 @@
     } catch (e) { /* ignore */ }
   };
   MG.vibrate = function (pattern) {
-    try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (e) { /* ignore */ }
+    try {
+      // Browsers block (and log) vibration before the first real tap.
+      var ua = navigator.userActivation;
+      if (ua && !ua.hasBeenActive) return;
+      if (navigator.vibrate) navigator.vibrate(pattern);
+    } catch (e) { /* ignore */ }
   };
 
   // Screen Wake Lock (keeps the phone awake during a round). Safe to call anywhere.
