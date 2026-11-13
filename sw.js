@@ -1,5 +1,5 @@
 // Bump this version whenever pages or local assets change to refresh offline copies.
-const CACHE_NAME = 'mini-games-v3';
+const CACHE_NAME = 'mini-games-v4-pages-notice';
 const PRECACHE = [
   "2048/index.html",
   "assets/ad-games.css",
