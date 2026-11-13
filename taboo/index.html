@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <link rel="icon" type="image/png" sizes="32x32" href="../assets/icons/favicon-32.png?v=2966e46c">
+  <link rel="icon" type="image/svg+xml" sizes="any" href="../assets/icons/icon.svg?v=ce2c3834">
+  <link rel="apple-touch-icon" sizes="180x180" href="../assets/icons/apple-touch-icon-180.png?v=8fe226b3">
+  <link rel="manifest" href="../manifest.webmanifest?v=bb8c639b">
+  <meta name="theme-color" content="#f4f5f9" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#14151f" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-title" content="미니게임">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>금지어 게임 · Mini Games</title>
+  <meta name="description" content="금지어를 말하지 않고 정답을 설명하는 팀 대항 파티 게임. 성경 카드도 있어요.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="stylesheet" href="../assets/style.css?v=39487152">
+  <script defer src="../assets/pwa.js?v=5a89a413"></script>
+</head>
+<body data-game="taboo">
+  <header class="site-header">
+    <a class="back" href="../recreation/">← 게임 목록</a>
+    <h1>🚫 금지어 게임</h1>
+    <span class="spacer"></span>
+  </header>
+  <main class="game" id="app"></main>
+
+<script src="../assets/common.js?v=b8e111b3"></script>
+<script src="../assets/teamround.js?v=3f0a674f"></script>
+<script src="words.js?v=e62cfe02"></script>
+<script>
+TeamRound.start({
+  key: 'taboo', emoji: '🚫', mode: 'taboo', timeOptions: [60, 90, 120], defaultTime: 60,
+  intro: '카드의 정답을 말로 설명해서 팀원이 맞히게 해요.\n단, 정답과 아래 금지어는 절대 말하면 안 돼요!\n금지어를 말하면 감점(-1)이에요.',
+  readyNote: '휴대폰은 설명하는 사람이 받아 주세요.\n맞히는 팀원에게는 화면이 보이지 않게 가려야 해요!\n금지어를 말하면 상대 팀이 "🚫 금지어" 버튼을 눌러요.',
+  countNote: '설명하는 사람은 화면을 가리고 준비하세요!',
+  cats: window.TABOO_DATA.map(function (c) {
+    return {
+      name: c.cat, emoji: c.emoji, group: c.group,
+      items: c.cards.split('|').map(function (s) { var p = s.split(':'); return { w: p[0], f: p[1].split(',') }; })
+    };
+  })
+});
+</script>
+<script data-goatcounter="https://mini-games.goatcounter.com/count"
+        async src="//gc.zgo.at/count.js"></script>
+</body>
+</html>

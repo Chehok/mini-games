@@ -1,0 +1,16 @@
+# 검사만 한다. 파일을 고치거나 GitHub Pages를 배포하지 않는다.
+# Pages는 저장소 루트를 그대로 서빙하고, 이 워크플로는 ?v= 가 빠졌는지만 본다.
+name: Asset versions
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check CSS/JS version queries
+        run: node scripts/stamp-assets.js --check

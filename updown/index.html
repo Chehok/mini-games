@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <link rel="icon" type="image/png" sizes="32x32" href="../assets/icons/favicon-32.png?v=2966e46c">
+  <link rel="icon" type="image/svg+xml" sizes="any" href="../assets/icons/icon.svg?v=ce2c3834">
+  <link rel="apple-touch-icon" sizes="180x180" href="../assets/icons/apple-touch-icon-180.png?v=8fe226b3">
+  <link rel="manifest" href="../manifest.webmanifest?v=bb8c639b">
+  <meta name="theme-color" content="#f4f5f9" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#14151f" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-title" content="미니게임">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>업다운 숫자 · Mini Games</title>
+  <meta name="description" content="범위를 정하고 UP · DOWN 힌트로 숨은 숫자를 함께 찾아요.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="stylesheet" href="../assets/style.css?v=39487152">
+  <link rel="stylesheet" href="../assets/recreation.css?v=51d33eaa">
+  <script defer src="../assets/pwa.js?v=5a89a413"></script>
+</head>
+<body data-game="updown">
+  <header class="site-header"><a class="back" href="../recreation/">← 게임 목록</a><h1>🔢 업다운 숫자</h1><span class="spacer"></span></header>
+  <main class="game rec-page">
+    <form id="setup" class="panel">
+      <h2>숫자 범위를 정해요</h2>
+      <div class="controls"><label>최솟값<input class="input" id="min" type="number" value="1" min="-999999" max="999999" required></label><label>최댓값<input class="input" id="max" type="number" value="100" min="-999999" max="999999" required></label></div>
+      <button class="btn primary wide" type="submit">새 숫자로 시작</button>
+      <p class="hint">차례대로 숫자를 말하고 진행자가 입력해 주세요.</p>
+    </form>
+    <section class="panel" aria-label="숫자 맞히기">
+      <div id="display" class="hero" role="status">준비</div>
+      <p class="hint center" id="range"></p>
+      <p class="center">시도 <b id="tries">0</b>회</p>
+      <form id="guessForm"><label for="guess">예상 숫자</label><div class="controls"><input class="input" id="guess" type="number" required aria-label="예상 숫자"><button class="btn primary" id="submitGuess" type="submit">확인</button></div></form>
+      <button class="btn wide" id="reveal" type="button">정답 공개</button>
+      <h2>추측 기록</h2><ol class="history" id="history" aria-live="polite"></ol>
+    </section></main>
+  <script src="../assets/common.js?v=b8e111b3"></script>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+
+  var answer, low, high, count = 0, over = false;
+  var saved = MG.store.get('updown.range', [1, 100]);
+  if (Array.isArray(saved) && saved.length === 2) { $('min').value = saved[0]; $('max').value = saved[1]; }
+  function start() {
+    var a = Number($('min').value), b = Number($('max').value);
+    if (!$('min').value || !$('max').value || !Number.isSafeInteger(a) || !Number.isSafeInteger(b) || a >= b || a < -999999 || b > 999999) { MG.toast('최솟값보다 큰 최댓값을 정해 주세요 (−999999~999999)'); return; }
+    low = a; high = b; answer = a + Math.floor(Math.random() * (b - a + 1));
+    count = 0; over = false; $('history').replaceChildren(); $('tries').textContent = '0';
+    $('display').textContent = '숫자는?'; $('guess').disabled = false; $('submitGuess').disabled = false; $('reveal').disabled = false; $('guess').value = '';
+    MG.store.set('updown.range', [a, b]); updateRange();
+  }
+  function updateRange() { $('range').textContent = low + ' ~ ' + high + ' 사이예요'; $('guess').min = low; $('guess').max = high; }
+  function finish(text) { over = true; $('display').textContent = text + ' ' + answer; $('guess').disabled = true; $('submitGuess').disabled = true; $('reveal').disabled = true; }
+  function guess() {
+    if (over) return;
+    var value = Number($('guess').value);
+    if (!$('guess').value || !Number.isSafeInteger(value) || value < low || value > high) { MG.toast('현재 범위 안의 정수를 입력해 주세요'); return; }
+    count++; $('tries').textContent = count;
+    var hint = value === answer ? '정답!' : value < answer ? 'UP ↑' : 'DOWN ↓';
+    var li = document.createElement('li'); li.textContent = value + ' → ' + hint; $('history').appendChild(li);
+    if (value === answer) finish('정답!');
+    else { if (value < answer) low = value + 1; else high = value - 1; $('display').textContent = hint; updateRange(); $('guess').value = ''; $('guess').focus(); }
+  }
+  $('setup').onsubmit = function (e) { e.preventDefault(); start(); };
+  $('guessForm').onsubmit = function (e) { e.preventDefault(); guess(); };
+  $('reveal').onclick = function () { if (!over) finish('정답은'); };
+  start();
+})();
+</script>
+<script data-goatcounter="https://mini-games.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body>
+</html>

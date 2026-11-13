@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <link rel="icon" type="image/png" sizes="32x32" href="../assets/icons/favicon-32.png?v=2966e46c">
+  <link rel="icon" type="image/svg+xml" sizes="any" href="../assets/icons/icon.svg?v=ce2c3834">
+  <link rel="apple-touch-icon" sizes="180x180" href="../assets/icons/apple-touch-icon-180.png?v=8fe226b3">
+  <link rel="manifest" href="../manifest.webmanifest?v=bb8c639b">
+  <meta name="theme-color" content="#f4f5f9" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#14151f" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-title" content="미니게임">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>몸으로 말해요 · Mini Games</title>
+  <meta name="description" content="말 없이 몸짓으로만 설명하고, 팀원들이 정답을 맞히는 파티 게임. 팀전, 제한 시간, 패스 횟수를 정할 수 있어요.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="stylesheet" href="../assets/style.css?v=39487152">
+  <script defer src="../assets/pwa.js?v=5a89a413"></script>
+<meta name="robots" content="noindex"></head>
+<body data-game="charades">
+  <header class="site-header">
+    <a class="back" href="../recreation/">← 게임 목록</a>
+    <h1>🤸 몸으로 말해요</h1>
+    <span class="spacer"></span>
+  </header>
+  <main class="game" id="app"></main>
+
+<script src="../assets/common.js?v=b8e111b3"></script>
+<script src="../assets/teamround.js?v=3f0a674f"></script>
+<script src="words.js?v=623b72bf"></script>
+<script>
+TeamRound.start({
+  key: 'charades', emoji: '🤸', mode: 'act', timeOptions: [60, 90, 120], defaultTime: 60,
+  intro: '한 사람이 단어를 보고 말 없이 몸으로만 설명해요.\n같은 팀이 시간 안에 최대한 많이 맞혀 보세요!',
+  readyNote: '휴대폰은 연기하는 사람이 받아 주세요.\n(말하기, 소리 내기, 글자 쓰기는 금지)',
+  countNote: '연기자는 화면을 가리고 준비하세요!',
+  cats: window.CHARADES_DATA.map(function (c) {
+    return { name: c.cat, emoji: c.emoji, group: c.group, items: c.words.split(',').map(function (w) { return { w: w.trim() }; }) };
+  })
+});
+</script>
+<div aria-hidden="true" style="position:fixed;left:8px;bottom:8px;z-index:2147483647;pointer-events:none;padding:2px 8px;border-radius:999px;background:#f97316;color:#fff;font:700 11px/1.6 system-ui,sans-serif;opacity:.85">STAGE</div></body>
+</html>
