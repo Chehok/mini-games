@@ -38,8 +38,9 @@
     (function () {
       var match = /^#(solo|party|tools|ads)\/?$/i.exec(location.hash);
       if (!match) return;
-      var paths = { solo: './', party: 'party/', tools: 'recreation/', ads: 'puzzles/' };
-      location.replace(paths[match[1].toLowerCase()] + location.search);
+      var key = match[1].toLowerCase();
+      if (key === 'party' || key === 'tools') { location.replace('https://recreation-cmx.pages.dev/'); return; }
+      location.replace((key === 'ads' ? 'puzzles/' : './') + location.search);
     })();
   </script>
 </head>
@@ -53,8 +54,6 @@
     <div class="hub-switch">
       <nav class="hub-modes" aria-label="게임 종류">
         <a class="hub-mode" href="./" aria-current="page"><span class="tab-icon" aria-hidden="true">😊 </span>1인용</a>
-        <a class="hub-mode" href="party/"><span class="tab-icon" aria-hidden="true">👥 </span>다인용</a>
-        <a class="hub-mode" href="recreation/"><span class="tab-icon" aria-hidden="true">🧰 </span>레크레이션</a>
         <a class="hub-mode" href="puzzles/"><span class="tab-icon" aria-hidden="true">👀 </span>어? 그 게임</a>
       </nav>
     </div>
@@ -88,6 +87,15 @@
       <a class="card" href="chosung/?mode=solo">
         <span class="emoji" aria-hidden="true">💡</span>
         <div><h2>초성 퀴즈</h2><p>초성만 보고 정답을 맞혀요. 10문제 도전!</p></div>
+      </a>
+      </nav>
+    </section>
+    <section class="hub-section" id="recreation-link" style="margin-top:28px">
+      <h2 class="section-title"><small>여럿이 함께라면 · 레크리에이션 게임은 새 사이트로 옮겼어요</small></h2>
+      <nav class="cards" aria-label="레크리에이션 사이트">
+      <a class="card external" href="https://recreation-cmx.pages.dev/">
+        <span class="emoji" aria-hidden="true">🎉</span>
+        <div><h2>레크리에이션 <span class="tag">다른 사이트 ↗</span></h2><p>몸으로 말해요 · 스피드 퀴즈 · 라이어 · OX · 초성 팀전 · 진행 도구</p></div>
       </a>
       </nav>
     </section>

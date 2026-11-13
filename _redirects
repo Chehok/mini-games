@@ -1,0 +1,25 @@
+# 레크리에이션 게임은 별도 사이트로 옮겼어요 (2026-11-13). Cloudflare Pages가 읽어요.
+/party/* https://recreation-cmx.pages.dev/ 302
+/party https://recreation-cmx.pages.dev/ 302
+/recreation/* https://recreation-cmx.pages.dev/ 302
+/recreation https://recreation-cmx.pages.dev/ 302
+/charades/* https://recreation-cmx.pages.dev/charades/:splat 302
+/charades https://recreation-cmx.pages.dev/charades/ 302
+/speed/* https://recreation-cmx.pages.dev/speed/:splat 302
+/speed https://recreation-cmx.pages.dev/speed/ 302
+/taboo/* https://recreation-cmx.pages.dev/taboo/:splat 302
+/taboo https://recreation-cmx.pages.dev/taboo/ 302
+/ox/* https://recreation-cmx.pages.dev/ox/:splat 302
+/ox https://recreation-cmx.pages.dev/ox/ 302
+/telepathy/* https://recreation-cmx.pages.dev/telepathy/:splat 302
+/telepathy https://recreation-cmx.pages.dev/telepathy/ 302
+/updown/* https://recreation-cmx.pages.dev/updown/:splat 302
+/updown https://recreation-cmx.pages.dev/updown/ 302
+/hunminjeongeum/* https://recreation-cmx.pages.dev/hunminjeongeum/:splat 302
+/hunminjeongeum https://recreation-cmx.pages.dev/hunminjeongeum/ 302
+/rps-bracket/* https://recreation-cmx.pages.dev/rps-bracket/:splat 302
+/rps-bracket https://recreation-cmx.pages.dev/rps-bracket/ 302
+/tools/* https://recreation-cmx.pages.dev/tools/:splat 302
+/tools https://recreation-cmx.pages.dev/tools/ 302
+/liar/* https://recreation-cmx.pages.dev/liar/:splat 302
+/liar https://recreation-cmx.pages.dev/liar/ 302

@@ -65,7 +65,7 @@
     <div class="modebar">
       <div class="seg" id="modes" role="group" aria-label="모드">
         <button data-mode="solo" aria-pressed="true">혼자</button>
-        <button data-mode="party" aria-pressed="false">함께</button>
+        <button data-mode="party" aria-pressed="false">함께 ↗</button>
       </div>
     </div>
 
@@ -257,7 +257,13 @@
     if (mode === 'party') { stopSolo(); if (!pq || previous !== mode) nextParty(); } else { clearInterval(pTick); }
     document.title = '초성 퀴즈 · Mini Games';
   }
-  $('modes').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) setMode(b.dataset.mode, true); });
+  // 함께(팀전) 모드는 레크리에이션 사이트로 옮겼어요.
+  var PARTY_URL = 'https://recreation-cmx.pages.dev/chosung/?mode=party';
+  $('modes').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.mode === 'party') { location.href = PARTY_URL; return; }
+    setMode(b.dataset.mode, true);
+  });
 
   /* ======================= 혼자 ======================= */
   var queue = [], q = null, qi = 0, score = 0, streak = 0, hints = 0, results = [], deadline = 0, sTick = null, locked = false, qPool = [];
@@ -454,7 +460,8 @@
   /* ---------- 시작 ---------- */
   drawCats(); drawTeams(); drawTimerSeg(); showBest();
   var m = new URLSearchParams(location.search).get('mode');
-  setMode(m === 'party' ? 'party' : 'solo', false);
+  if (m === 'party') { location.replace(PARTY_URL); return; }
+  setMode('solo', false);
   window.Chosung = { current: function () { var x = mode === 'solo' ? q : pq; return x ? x.a : null; }, chosung: chosung, isCorrect: isCorrect, count: function () { return CATS.reduce(function (n, c) { return n + c.items.length; }, 0); } };
 })();
 </script>

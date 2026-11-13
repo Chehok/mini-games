@@ -4,36 +4,13 @@ const vm = require('vm');
 const assert = require('assert/strict');
 function read(p) { return fs.readFileSync(p, 'utf8'); }
 function inline(p) { return [...read(p).matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].map(m=>m[1]).filter(Boolean).join('\n'); }
-for (const dir of ['sudoku','minesweeper','2048','memory','slide-puzzle','wordle','chosung','liar','tools','updown','hunminjeongeum','rps-bracket','ox','telepathy','charades','speed','taboo','pin-pull','water-sort','screw-puzzle','parking-jam','untangle']) {
+for (const dir of ['sudoku','minesweeper','2048','memory','slide-puzzle','wordle','chosung','puzzles','pin-pull','water-sort','screw-puzzle','parking-jam','untangle']) {
   new vm.Script(inline(dir+'/index.html'), {filename: dir+'/index.html'});
 }
-for (const p of ['assets/common.js','assets/name-rows.js','rps-bracket/logic.js','assets/teamround.js','tools/logic.js','charades/words.js','speed/words.js','chosung/words.js','ox/questions.js','taboo/words.js','wordle/words.js']) new vm.Script(read(p), {filename:p});
-const ctx = {window:{}}; vm.runInNewContext(read('tools/logic.js'),ctx);
-const L = ctx.window.ToolsLogic;
-assert.equal(L.splitTeams(['가/toString','나/constructor','다/__proto__','라/hasOwnProperty'],2).flat().length,4);
+for (const p of ['assets/common.js','chosung/words.js','wordle/words.js']) new vm.Script(read(p), {filename:p});
+const ctx = {window:{}};
 let seed = 12345;
 function rnd() { seed = (Math.imul(seed,1664525)+1013904223)>>>0; return seed/4294967296; }
-for (let n=2;n<=20;n++) for (let k=0;k<500;k++) {
-  const a=L.buildLadder(n,rnd);
-  assert.equal(new Set(a.ends).size,n);
-  assert.deepEqual(a.ends, L.traceAll(a.rungs, n, a.levels));
-  for(let c=0;c<n-1;c++) assert(a.rungs.filter(row=>row[c]).length>=2,`gap ${c} has fewer than 2 rungs (n=${n})`);
-  for(const row of a.rungs) for(let c=1;c<row.length;c++) assert(!(row[c]&&row[c-1]));
-}
-// Enumerate all Fisher–Yates choices: every possible result must occur exactly once.
-for(let n=2;n<=5;n++) {
-  const counts=new Map();
-  function visit(choices, size) {
-    if(size>1) { for(let j=0;j<size;j++) visit([...choices,(j+0.5)/size],size-1); return; }
-    let i=0; const a=L.buildLadder(n,()=>choices[i++]);
-    const result=a.ends.join(','); counts.set(result,(counts.get(result)||0)+1);
-  }
-  visit([],n);
-  assert([...counts.values()].every(v=>v===1));
-  assert.equal(counts.size,Array.from({length:n},(_,i)=>i+1).reduce((a,b)=>a*b,1));
-}
-const counts=[0,0]; for(let i=0;i<20000;i++) counts[L.buildLadder(2,rnd).ends[0]]++;
-assert(Math.abs(counts[0]-10000)<400);
 vm.runInNewContext(read('wordle/words.js'),ctx);
 const answers=ctx.window.WORDLE_ANSWERS, valid=ctx.window.WORDLE_VALID;
 assert(answers.length>450); assert(answers.every(w=>/^[a-z]{5}$/.test(w)));
@@ -41,8 +18,7 @@ assert.equal(new Set(answers).size,answers.length);
 assert(answers.every(w=>valid.includes(w)));
 for(const w of 'drunk smoke booze beers vodka ciggy ghost devil blood knife bitch fucks sluts'.split(' ')) assert(!valid.includes(w),w);
 for(const [p,name,field,sep] of [
-  ['charades/words.js','CHARADES_DATA','words',','],['speed/words.js','SPEED_DATA','words',','],
-  ['chosung/words.js','CHOSUNG_DATA','items',null],['ox/questions.js','OX_DATA','items',null],['taboo/words.js','TABOO_DATA','cards','|']
+  ['chosung/words.js','CHOSUNG_DATA','items',null]
 ]) {
   vm.runInNewContext(read(p),ctx);
   for(const c of ctx.window[name]) {
@@ -50,8 +26,8 @@ for(const [p,name,field,sep] of [
     assert(items.every(s=>!/(담배|맥주|막걸리|포도주|좀비|유령|드라큘라|장도리)/.test(s)),c.cat);
   }
 }
-console.log('PASS: syntax, tags, ladder permutations (2–20 players), exact uniformity (2–5 players), content');
-console.log('2-player distribution (20,000):',counts,'Wordle words:',answers.length);
+console.log('PASS: syntax, tags, content');
+console.log('Wordle words:',answers.length);
 
 // Isolated DOM/timer harness: execute the real page scripts and advance old callbacks after reset.
 function game(file, exports, initial={}) {
@@ -70,7 +46,6 @@ function game(file, exports, initial={}) {
   const context={window:{innerWidth:390,addEventListener(){}},document,MG,Date:FakeDate,setTimeout:(fn,ms)=>set(fn,ms),clearTimeout:id=>tasks.delete(id),setInterval:(fn,ms)=>set(fn,ms,true),clearInterval:id=>tasks.delete(id),console,Intl,URLSearchParams,location:{search:''},history:{replaceState(){}}};
   if(file==='wordle') vm.runInNewContext(read('wordle/words.js'),context);
   if(file==='chosung') vm.runInNewContext(read('chosung/words.js'),context);
-  if(file==='liar') context.window.LIAR_DATA=[{cat:'테스트',words:'사과,바나나'}];
   let src=file.endsWith('.js')?read(file):inline(file+'/index.html');
   const end=file.endsWith('.js')?src.indexOf('    renderSetup();\n    window.TeamRoundDebug'):src.lastIndexOf('})();');
   src=src.slice(0,end)+'window.test = {'+exports+'};\n'+src.slice(end);vm.runInNewContext(src,context);
@@ -103,37 +78,6 @@ function game(file, exports, initial={}) {
  g.t.startGame();g.advance(4000);assert(g.window.__wordle.state().won);assert.equal(g.saved.get('wordle.stats.daily').played,1);
 }
 console.log('PASS: memory reset/records, 2048 reset/continue, slide reset, Wordle immediate daily/endless stats and callback cancellation');
-{
- const g=game('liar',"renderVerdict,renderReveal,renderEnd,init:function(){S.n=3;G={cat:'과일',word:'바나나',alt:'사과',liar:0,votes:[1,1,0]};}");
- g.t.init();g.t.renderVerdict();assert(!g.element('#app').innerHTML.includes('바나나'));
- const choices=g.element('#app').querySelector('.panel').children;assert.equal(choices.length,2);
- choices[0].onclick();assert(!g.element('#app').innerHTML.includes('바나나'));
- g.t.renderEnd('citizen','완료');assert(g.element('#app').innerHTML.includes('바나나'));
-}
-for(const mode of ['act','explain','taboo']) {
- const g=game('assets/teamround.js',"startSession,startTurn,mark,renderSummary,turnState:function(){return turn;},setDeadline:function(d){turn.deadline=d;}");
- g.window.TeamRound.start({key:mode,mode,emoji:'',cats:[{name:'과일',items:[{w:'사과'},{w:'바나나'}]}],timeOptions:[60],intro:'',readyNote:'',countNote:''});
- g.t.startSession();g.t.startTurn();g.t.setDeadline(1001);g.t.mark('ok');assert.equal(g.t.turnState().entries.length,1);
- g.t.setDeadline(1000);g.t.mark('pass');assert.equal(g.t.turnState().entries.length,1);assert(g.t.turnState().over);
- if(mode==='taboo') {
-  g.t.startTurn();g.t.mark('foul');g.t.renderSummary();assert.equal(g.element('#sumPts').textContent,'-1점');
-  const buttons=g.element('#sumList').children[0].children.slice(2);assert.equal(buttons.length,2);
-  buttons.find(b=>b.textContent==='패스로').onclick();assert.equal(g.element('#sumPts').textContent,'+0점');
- }
-}
-console.log('PASS: liar tie selection and secret until final guess; all three team games reject deadline inputs; taboo penalty correction');
-{
- const els=new Map(), spins=[], tasks=[];let job=0;
- const $=s=>{if(!els.has(s))els.set(s,{checked:true,insertAdjacentHTML(){}});return els.get(s);};
- const ctx={$,kn:3,picked:[],lastPick:[],MG:{shuffle:a=>a,unlockAudio(){},toast(){}},plainList:()=>['가','나','다','라'],stopMotion:()=>++job,alive:id=>id===job,prefersReduce:()=>false,updatePickInfo(){},intoView(){},spinSlot:(el,pool,winner,dur,id,done)=>spins.push({pool,winner,done}),later:fn=>tasks.push(fn),esc:String};
- const src=inline('tools/index.html');const a=src.indexOf("  $('#pick').onclick ="),b=src.indexOf("  $('#copyPick').onclick",a);
- vm.runInNewContext(src.slice(a,b),ctx);$('#pick').onclick();assert.equal(ctx.picked.length,0);assert.equal(ctx.lastPick.length,0);
- spins.shift().done();assert.equal(ctx.picked.join(','),'가');assert.equal(ctx.lastPick.join(','),'가');
- ++job;tasks.shift()();assert.equal(spins.length,0);
- $('#pick').onclick();assert.equal(spins[0].pool.join(','),'나,다,라');
-}
-console.log('PASS: interrupted exclusion draw excludes and copies only revealed winners');
-
 
 // Ad puzzles: exercise the exact pure logic files loaded by the browser controllers.
 for (const dir of ['pin-pull','water-sort','screw-puzzle','parking-jam','untangle']) {
@@ -401,4 +345,4 @@ const {adController}=require('./ad-controller-harness.cjs');
   console.log('PASS: all five real controllers; animated pour/level changes and driving reset cancellation, corks/clear banners, blocked-car bounce, exit meter, peg drag/cancel/glows, keyboard/hint win, sound OFF and legacy progress');
 })().catch(e=>{console.error(e);process.exitCode=1;});
 
-require('./recreation-sanity.cjs');
+

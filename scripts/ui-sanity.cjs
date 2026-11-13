@@ -123,14 +123,10 @@ function contrast(fg, bg) {
         assert(await evaluate('document.querySelector(".m").getBoundingClientRect().width >= 32'), 'mines cell size');
         assert(await evaluate('document.documentElement.scrollWidth <= innerWidth'), 'mines overflow');
       }
-      if(['','party','recreation','puzzles'].includes(page)) {
+      if(['','puzzles'].includes(page)) {
         const pair=await evaluate(`(()=>{const e=document.querySelector('.hub-mode[aria-current="page"]');const s=getComputedStyle(e);return [s.color,s.backgroundColor];})()`);
         assert(contrast(...pair)>=4.5, 'category '+page+' contrast');
         assert(await evaluate(`document.querySelector('.hub-mode[aria-current="page"]').href === location.href`), 'current category URL');
-      }
-      if(page==='tools') for(const tab of ['ladder','wheel','draw']) {
-        await evaluate(`document.querySelector('#btn-${tab}').click()`);
-        assert(await evaluate('document.documentElement.scrollWidth <= innerWidth'), 'tool '+tab+' overflow');
       }
       if(width===360 && theme==='light' && ['sudoku','wordle','minesweeper'].includes(page)) {
         const png=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
@@ -231,29 +227,8 @@ function contrast(fg, bg) {
   await evaluate(`__wordle.answer().split('').forEach(ch=>document.querySelector('[data-k="'+ch+'"]').click()); document.querySelector('[data-k="Enter"]').click()`);
   await new Promise(r=>setTimeout(r,1600));
   assert(await evaluate(`Array.from(document.querySelectorAll('.brow:first-child .tile')).every(e=>e.getAttribute('aria-label').includes('정확한 위치'))`), 'wordle result labels');
-  await loaded(base+'liar/');
-  await evaluate(`MG.store.set('liar.settings', {n:3,names:['긴이름가나다라마바사아자차카타파하','가','나']})`);
-  await loaded(base+'liar/');
-  await evaluate(`document.querySelector('#startBtn').click(); for(let i=0;i<3;i++){document.querySelector('#reveal').click();document.querySelector('#hide').click();} document.querySelector('#toVote').click()`);
-  await cdp('Emulation.setDeviceMetricsOverride',{width:360,height:900,deviceScaleFactor:1,mobile:false});
-  assert(await evaluate(`getComputedStyle(document.querySelector('.votegrid')).gridTemplateColumns.split(' ').length===1 && document.documentElement.scrollWidth<=innerWidth`), 'liar long names and one column');
-  const votePng=await cdp('Page.captureScreenshot',{format:'png'});
-  fs.writeFileSync(path.join(profile,'liar.png'),Buffer.from(votePng.data,'base64'));
-  await loaded(base+'tools/');
-  await evaluate(`document.querySelector('#btn-wheel').click()`);
-  const counts=await evaluate(`new Promise(resolve=>{
-    let parses=0, measures=0, sizes=0;
-    const parse=ToolsLogic.parseList, measure=CanvasRenderingContext2D.prototype.measureText;
-    ToolsLogic.parseList=function(...args){parses++;return parse.apply(this,args);};
-    CanvasRenderingContext2D.prototype.measureText=function(...args){measures++;return measure.apply(this,args);};
-    const descriptor=Object.getOwnPropertyDescriptor(HTMLCanvasElement.prototype,'width');
-    Object.defineProperty(HTMLCanvasElement.prototype,'width',{...descriptor,set(v){sizes++;descriptor.set.call(this,v);}});
-    document.querySelector('#spin').click();
-    setTimeout(()=>resolve({parses,measures,sizes}),400);
-  })`);
-  assert(counts.parses<=1 && counts.measures===0 && counts.sizes===0, 'roulette frame cache: '+JSON.stringify(counts));
   assert.equal(errors.length,0,JSON.stringify(errors));
-  console.log(`PASS: ${pages.length} pages × 360/390/1280px × light/dark, Wordle + all five puzzles at 320px, dense puzzle stages at 320/390/1280px and DPR 2, all puzzle actions fit 390×844, new category name, glass/corks, detailed cars/exit meter, ropes/glows/gold, reduced-motion tutorials, stars banners, silent HUD/restart, contrast, controls, mines zoom, tabs, dialog focus/Tab/Escape, game labels, long names, roulette cache`);
+  console.log(`PASS: ${pages.length} pages × 360/390/1280px × light/dark, Wordle + all five puzzles at 320px, dense puzzle stages at 320/390/1280px and DPR 2, all puzzle actions fit 390×844, new category name, glass/corks, detailed cars/exit meter, ropes/glows/gold, reduced-motion tutorials, stars banners, silent HUD/restart, contrast, controls, mines zoom, tabs, dialog focus/Tab/Escape, game labels`);
   console.log('PASS: every page has resolving apple-touch-icon/favicon/manifest links under /mini-games/, including manifest icons and launch scope');
   console.log('Screenshots:',profile);
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(()=>{if(ws)ws.close();if(child)child.kill();server.close();});
