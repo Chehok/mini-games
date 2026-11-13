@@ -4,19 +4,19 @@
 게임 목록, 폴더 구조, 실행 방법, 게임 추가 방법, `?v=` 스크립트, Pages 배포는 [README](README.md)에 있으니 여기서는 되풀이하지 않아요.
 
 - 저장소: <https://github.com/Chehok/mini-games> (공개, 개인 계정 `Chehok`)
-- 배포 주소: <https://chehok.github.io/mini-games/>
+- 배포 주소: <https://mini-games-69o.pages.dev/> (Cloudflare Pages, 운영) · <https://stage.mini-games-69o.pages.dev/> (stage 확인용)
 - 기준: **GitHub `main` 브랜치가 정본**이에요. 다른 곳에 있는 사본은 오래됐을 수 있어요.
 
 ## 1. 작업 방식 (2026-11-13 변경: stage → main)
 
 - 브랜치는 두 개예요.
-  - `main`: 운영. <https://chehok.github.io/mini-games/>
-  - `stage`: 확인용. <https://chehok.github.io/mini-games/stage/> (화면 왼쪽 아래에 주황색 **STAGE** 표시)
+  - `main`: 운영. <https://mini-games-69o.pages.dev/>
+  - `stage`: 확인용. <https://stage.mini-games-69o.pages.dev/> (Cloudflare Pages 브랜치 미리보기)
 - 작업한 내용은 **바로 `stage`에 push**해서 사용자가 stage 주소에서 결과를 확인하게 해요.
 - **`main`에는 사용자가 명시적으로 지시했을 때만** 반영해요(예: "main에 머지해줘", "운영에 반영해줘"). 에이전트가 스스로 `main`에 push하거나 머지하지 않아요.
   - 반영 방법: `stage`를 `main`에 fast-forward로 올려요(`git push origin stage:main`). 두 브랜치 기록을 똑같이 유지하려고 squash는 쓰지 않아요.
   - stage에 있는 작업 중 일부만 반영하라는 지시가 있으면, 그때 방법을 사용자와 정해요.
-- 반영 뒤에는 배포 주소에서 바뀐 내용이 실제로 보이는지 확인해요(Actions의 *Deploy Pages* 완료 후 보통 1분 안팎).
+- 반영 뒤에는 배포 주소에서 바뀐 내용이 실제로 보이는지 확인해요(Cloudflare Pages 빌드가 끝난 뒤 보통 1~2분 안팎).
 - `stage`에 push하기 전에 확인할 것:
   - 브라우저(헤드리스여도 됨)에서 바뀐 페이지를 열어 모바일 폭(약 390px)과 데스크톱, 다크 모드를 확인
   - 콘솔 오류 없음, 가로 스크롤 없음
@@ -36,12 +36,11 @@
 
 - 사용자 Windows PC의 작업 폴더는 `C:\git\mini-games`이고, 이 저장소에 연결돼 있어요.
 - PC 사본은 뒤처져 있을 수 있어요. PC에서 고치기 전에 반드시 `git pull`부터 해요.
-- 배포: `main`이나 `stage`에 push하면 `.github/workflows/deploy-pages.yml`이 두 브랜치를 합쳐 `github-pages` 브랜치에 올려요. GitHub Pages는 **`github-pages` 브랜치의 `/ (root)`** 를 서비스해요(Settings → Pages).
-  - 루트 = `main`, `/stage/` = `stage`
-  - stage 사본은 배포할 때만 바뀌어요: 캐시하지 않는 서비스워커, 방문 통계(GoatCounter) 제거, `noindex`, STAGE 표시, 앱 이름 "미니게임 (stage)". 저장소의 `stage` 브랜치 파일은 그대로예요.
-  - `github-pages` 브랜치는 자동 생성물이라 직접 고치지 않아요. `main`·`stage`에 `stage/` 폴더를 만들지 않아요.
-- Pages는 css/js를 최대 10분 캐시해요. 그래서 `?v=` 스탬프를 써요([README](README.md#github-pages-배포)). `.github/workflows/asset-versions.yml`은 스탬프가 맞는지 **검사만** 해요(PR, `main`·`stage` push).
-- `main`과 `stage`는 같은 출처(origin)라서 `MG.store`(localStorage) 저장값을 함께 써요. stage에서 저장 형식을 바꾸는 작업은 운영 데이터에 영향을 줄 수 있으니 조심해요.
+- 배포는 **Cloudflare Pages**가 GitHub 저장소에 연결돼 자동으로 해요. 빌드 단계 없이 저장소 루트를 그대로 서비스해요.
+  - `main` push → 운영 <https://mini-games-69o.pages.dev/>
+  - `stage` push → 미리보기 <https://stage.mini-games-69o.pages.dev/>
+- Pages는 css/js를 캐시할 수 있어서 `?v=` 스탬프를 써요([README](README.md#github-pages-배포)). `.github/workflows/asset-versions.yml`은 스탬프가 맞는지 **검사만** 해요(PR, `main`·`stage` push).
+- `github-pages` 브랜치와 `chehok.github.io/mini-games` 주소는 예전 배포 방식의 흔적이에요. 기준 배포 주소는 Cloudflare예요.
 
 ## 4. git 계정 규칙
 

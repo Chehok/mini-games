@@ -2,7 +2,7 @@
 
 설치도 빌드도 필요 없는 **순수 HTML/CSS/JS** 미니 게임 모음이에요. 외부 라이브러리·CDN·폰트를 쓰지 않고, 모든 링크는 상대 경로라서 GitHub Pages에 그대로 올리면 바로 동작해요.
 
-배포 주소: <https://chehok.github.io/mini-games/>
+배포 주소: <https://mini-games-69o.pages.dev/> (stage 미리보기: <https://stage.mini-games-69o.pages.dev/>)
 
 ## 게임 목록
 
@@ -132,10 +132,7 @@ python3 -m http.server 8000
 
 ## GitHub Pages 배포
 
-`main`·`stage`에 푸시하면 `.github/workflows/deploy-pages.yml`이 둘을 합쳐 `github-pages` 브랜치에 올려요. **Settings → Pages**는 `github-pages` 브랜치의 `/ (root)`를 서비스해요.
-
-- 운영(`main`): <https://chehok.github.io/mini-games/>
-- 확인용(`stage`): <https://chehok.github.io/mini-games/stage/>
+Cloudflare Pages가 이 저장소에 연결돼 있어요. 빌드 없이 루트를 그대로 서비스해요. `main`은 운영, `stage`는 `stage.` 미리보기 주소로 자동 배포돼요.
 
 Pages는 CSS·JS를 최대 10분(`Cache-Control: max-age=600`) 저장합니다. 새 HTML이 예전 `style.css` 주소와 만나면 탭이 스타일 없는 버튼으로 보일 수 있어요. 그래서 각 페이지의 로컬 css/js(`assets/`, `words.js`, `questions.js`, `logic.js` 등)는 `?v=` 와 파일 내용의 짧은 해시를 달고 있습니다. 내용이 바뀐 파일만 주소가 바뀝니다.
 
