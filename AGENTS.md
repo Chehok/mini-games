@@ -40,7 +40,7 @@
   - `main` push → 운영 <https://mini-games-69o.pages.dev/>
   - `stage` push → 미리보기 <https://stage.mini-games-69o.pages.dev/>
 - Pages는 css/js를 캐시할 수 있어서 `?v=` 스탬프를 써요([README](README.md#github-pages-배포)). `.github/workflows/asset-versions.yml`은 스탬프가 맞는지 **검사만** 해요(PR, `main`·`stage` push).
-- `github-pages` 브랜치와 `chehok.github.io/mini-games` 주소는 예전 배포 방식의 흔적이에요. 기준 배포 주소는 Cloudflare예요.
+- `github-pages` 브랜치는 **GitHub Pages 전용**이에요(`chehok.github.io/mini-games`). `main`(95a55c3) 시점 그대로에, 모든 페이지에 Cloudflare 새 주소로 안내하는 팝업(세션당 한 번, `assets/pwa.js` 끝)만 더했어요. `main` 업데이트는 여기에 반영하지 않아요. 기준 배포 주소는 Cloudflare예요.
 
 ## 4. git 계정 규칙
 
