@@ -62,32 +62,40 @@ const files = fs.readdirSync(root, { recursive: true }).map(file => file.split(p
   assert(!entries.has('https://gc.zgo.at/count.js'));
 
   function ui(ua = 'Chrome Safari', standalone = false, touch = 0, legacy = false) {
-    const events = {}, button = { hidden: true, addEventListener: (name, fn) => events[name] = fn };
+    const events = {}, button = { hidden: true, textContent: '', attrs: {}, addEventListener: (name, fn) => events[name] = fn,
+      setAttribute(k, v) { this.attrs[k] = v; }, removeAttribute(k) { delete this.attrs[k]; } };
+    let copied = null, toast = null;
     const media = { matches: standalone, addEventListener: (name, fn) => events.media = fn };
     let registration, dialog;
     const navigator = { userAgent: ua, maxTouchPoints: touch, standalone: legacy,
       serviceWorker: { register: async (url, options) => { registration = { url, options }; } } };
-    vm.runInNewContext(read('assets/pwa.js'), { URL, navigator,
+    vm.runInNewContext(read('assets/pwa.js'), { URL, navigator, location: { origin: 'https://example.test', pathname: '/puzzles/' },
       document: { currentScript: { src: scope + 'assets/pwa.js?v=123' }, getElementById: () => button },
       window: { matchMedia: () => media, addEventListener: (name, fn) => events[name] = fn },
-      MG: { dialog: options => dialog = options } });
+      MG: { dialog: options => dialog = options, toast: t => toast = t, copy: async text => { copied = text; return true; } } });
     assert.equal(registration.url, scope + 'sw.js'); assert.equal(registration.options.scope, scope);
-    return { events, button, media, dialog: () => dialog };
+    return { events, button, media, dialog: () => dialog, copied: () => copied, toast: () => toast };
   }
   for (const outcome of ['accepted', 'dismissed']) {
     const u = ui(); assert(u.button.hidden);
     let prevented = false, prompted = false;
     u.events.beforeinstallprompt({ preventDefault: () => prevented = true,
       prompt: async () => prompted = true, userChoice: Promise.resolve({ outcome }) });
-    assert(prevented); assert(!u.button.hidden); await u.events.click(); assert(prompted); assert(u.button.hidden);
+    assert(prevented); assert(!u.button.hidden); assert.equal(u.button.textContent, '앱 설치');
+    await u.events.click(); assert(prompted); assert(u.button.hidden);
     u.events.appinstalled(); u.events.media(); assert(u.button.hidden);
   }
   for (const ua of ['iPhone Safari', 'iPad Safari', 'iPod Safari', 'Macintosh Safari']) {
     const u = ui(ua, false, 2); assert(!u.button.hidden); await u.events.click();
     assert.equal(u.dialog().text, 'Safari에서 공유 → 홈 화면에 추가를 선택해 주세요.');
     assert.equal(u.dialog().buttons[0].label, '닫기');
-    u.media.matches = true; u.events.media(); assert(u.button.hidden);
-    assert(ui(ua, true, 2).button.hidden); assert(ui(ua, false, 2, true).button.hidden);
+    assert.equal(u.dialog().title, '앱 설치');
+    // Opened as an installed app, the same button shares the page link.
+    u.media.matches = true; u.events.media(); assert(!u.button.hidden); assert.equal(u.button.textContent, '링크 공유');
+    for (const app of [ui(ua, true, 2), ui(ua, false, 2, true)]) {
+      assert(!app.button.hidden); assert.equal(app.button.textContent, '링크 공유');
+      await app.events.click(); assert.equal(app.copied(), 'https://example.test/puzzles/'); assert(app.toast().includes('복사'));
+    }
   }
   for (const browser of ['CriOS', 'FxiOS', 'EdgiOS', 'OPiOS']) assert(ui('iPhone Safari ' + browser).button.hidden);
   for (const page of files.filter(f => f.endsWith('.html'))) {
@@ -96,5 +104,5 @@ const files = fs.readdirSync(root, { recursive: true }).map(file => file.split(p
     else assert(/<script defer src="(?:\.\.\/)?assets\/pwa\.js\?v=/.test(read(page)), page + ': shared registration');
     assert(read(page).includes('rel="apple-touch-icon"'), page + ': Apple icon');
   }
-  console.log('PASS: complete precache, subpath/offline routes and queries, cache cleanup, analytics/POST passthrough, Chrome/iOS/standalone install UI');
+  console.log('PASS: complete precache, subpath/offline routes and queries, cache cleanup, analytics/POST passthrough, Chrome/iOS install UI and in-app link sharing');
 })().catch(error => { console.error(error); process.exitCode = 1; });

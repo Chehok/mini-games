@@ -17,8 +17,25 @@
     (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) &&
     /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS/.test(ua);
   function standalone() { return displayMode.matches || navigator.standalone === true; }
+  // In a browser tab the button installs the app; inside the installed app it copies the page link instead.
   function updateButton() {
-    button.hidden = installed || standalone() || (!deferredPrompt && !iosSafari);
+    if (standalone()) {
+      button.textContent = '링크 공유';
+      button.setAttribute('aria-label', '이 페이지 링크 복사');
+      button.hidden = false;
+      return;
+    }
+    button.textContent = '앱 설치';
+    button.removeAttribute('aria-label');
+    button.hidden = installed || (!deferredPrompt && !iosSafari);
+  }
+  function shareLink() {
+    var link = location.origin + location.pathname;
+    var done = function (ok) {
+      if (ok) { if (MG.toast) MG.toast('링크를 복사했어요. 원하는 곳에 붙여 넣어 주세요.'); return; }
+      MG.dialog({ title: '링크 공유', text: '아래 링크를 길게 눌러 복사해 주세요.\n' + link, buttons: [{ label: '닫기', primary: true }] });
+    };
+    return MG.copy(link).then(done, function () { done(false); });
   }
   window.addEventListener('beforeinstallprompt', function (event) {
     event.preventDefault();
@@ -32,7 +49,8 @@
   });
   displayMode.addEventListener('change', updateButton);
   button.addEventListener('click', async function () {
-    if (standalone() || installed) { updateButton(); return; }
+    if (standalone()) { return shareLink(); }
+    if (installed) { updateButton(); return; }
     if (deferredPrompt) {
       var prompt = deferredPrompt;
       button.disabled = true;
@@ -43,11 +61,11 @@
       finally {
         deferredPrompt = null;
         button.disabled = false;
-        button.hidden = true;
+        updateButton();
       }
     } else if (iosSafari) {
       MG.dialog({
-        title: '홈 화면에 추가',
+        title: '앱 설치',
         text: 'Safari에서 공유 → 홈 화면에 추가를 선택해 주세요.',
         buttons: [{ label: '닫기', primary: true }]
       });
