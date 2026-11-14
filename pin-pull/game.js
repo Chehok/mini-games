@@ -139,6 +139,8 @@
     cancelAnimationFrame(frame);frame=0;last=0;acc=0;calm=0;lastCount=-1;drainAnnounced=false;endedAt=null;run=P.epoch;data=L.level(P.level);state=L.initial(data);
     P.$('instructions').textContent=data.cups.length>1?'모든 컵의 보석 수를 채워 주세요.':'색 보석 '+data.target+'개를 컵에 모아 주세요.';
     P.introduce(data,L.mechanicHints);
+    // Par is the fewest pins that solve the board; a wrong pull usually spills gems and costs a heart.
+    P.goal({par:data.order.length,note:'순서가 틀리면 하트 -1'});
     P.say(data.name+' · '+data.hint);
     const board=P.$('board');board.className='puzzle-board pin-board';board.style.aspectRatio=W+' / '+data.height;
     canvas=document.createElement('canvas');canvas.setAttribute('aria-hidden','true');board.appendChild(canvas);ctx=canvas.getContext('2d');

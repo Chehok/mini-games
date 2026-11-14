@@ -1,7 +1,7 @@
 (function () {
   'use strict';
   const P=AdPuzzle('untangle'),L=UntangleLogic,NS='http://www.w3.org/2000/svg';
-  let data,nodes,buttons,lines,markers,drag=null,origin,frame=0,pending=null;
+  let data,nodes,buttons,lines,markers,drag=null,origin,frame=0,pending=null,keyPeg=-1,hintButton;
   P.$('instructions').textContent='점을 끌어 빨간 줄이 겹치지 않게 풀어요';
   function svgEl(tag,attrs,parent){const el=document.createElementNS(NS,tag);for(const [k,v] of Object.entries(attrs))el.setAttribute(k,v);parent.appendChild(el);return el;}
   function hideTutorial(){P.$('board').querySelectorAll('.tutorial-hand,.peg-destination').forEach(h=>h.remove());}
@@ -26,10 +26,14 @@
   function end(e,cancel){
     if(!drag||e.pointerId!==drag.id)return;flush();const d=drag;drag=null;buttons[d.i].classList.remove('dragging');
     if(cancel){nodes[d.i]=origin;redraw();return;}
-    if(Math.hypot(nodes[d.i].x-origin.x,nodes[d.i].y-origin.y)>.1)P.move();redraw();check();
+    if(Math.hypot(nodes[d.i].x-origin.x,nodes[d.i].y-origin.y)>.1){keyPeg=d.i;P.move();}redraw();check();
   }
   P.mount(()=>{
-    cancelAnimationFrame(frame);frame=0;pending=null;drag=null;data=L.generate(P.level,MG.rng(P.level*7919));nodes=data.nodes.map(p=>({...p}));
+    cancelAnimationFrame(frame);frame=0;pending=null;drag=null;keyPeg=-1;data=L.generate(P.level,MG.rng(P.level*7919));nodes=data.nodes.map(p=>({...p}));
+    // A move is one peg picked up and put down. Par is the fewest pegs that must move.
+    // People rarely place a peg perfectly on the first drag, so the cap is looser than the other puzzles.
+    const extra={easy:1.5,normal:1,hard:.75,boss:.6}[P.tier.key];
+    P.goal({par:data.par,limit:data.par+Math.max(3,Math.ceil(data.par*extra))});
     const board=P.$('board'),run=P.epoch;board.className='puzzle-board untangle-board';
     const svg=svgEl('svg',{class:'graph-lines',viewBox:'0 0 100 100','aria-hidden':'true'},board);
     lines=data.edges.map(()=>{const rope=svgEl('g',{class:'rope'},svg);for(const name of ['shadow','base','color','shine','twist','spark'])svgEl('path',{class:'rope-'+name},rope);return rope;});
@@ -47,7 +51,7 @@
       });
       b.addEventListener('pointerup',e=>{if(run===P.epoch)end(e,false);});b.addEventListener('pointercancel',e=>{if(run===P.epoch)end(e,true);});b.addEventListener('lostpointercapture',e=>{if(run===P.epoch)end(e,true);});
       b.addEventListener('keydown',e=>{
-        const dirs={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]},d=dirs[e.key];if(!d||P.over||drag||run!==P.epoch)return;e.preventDefault();hideTutorial();const step=e.shiftKey?5:1;set(i,nodes[i].x+d[0]*step,nodes[i].y+d[1]*step);P.move();check();
+        const dirs={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]},d=dirs[e.key];if(!d||P.over||drag||run!==P.epoch)return;e.preventDefault();hideTutorial();const step=e.shiftKey?5:1;set(i,nodes[i].x+d[0]*step,nodes[i].y+d[1]*step);if(keyPeg!==i){keyPeg=i;P.move();}check();
       });return b;
     });
     if(P.level===1){
@@ -55,7 +59,7 @@
       const hand=document.createElement('span');hand.className='tutorial-hand';hand.textContent='👆';hand.setAttribute('aria-hidden','true');hand.style.left=nodes[0].x+'%';hand.style.top=nodes[0].y+'%';
       hand.style.setProperty('--hint-x',(data.solution[0].x-nodes[0].x)+'%');hand.style.setProperty('--hint-y',(data.solution[0].y-nodes[0].y)+'%');board.appendChild(hand);
     }
-    P.button('배치 힌트',()=>{if(P.over||drag)return;hideTutorial();const i=nodes.findIndex((p,i)=>Math.hypot(p.x-data.solution[i].x,p.y-data.solution[i].y)>1);if(i>=0){set(i,data.solution[i].x,data.solution[i].y);P.move();check();}});redraw();
+    hintButton=P.button('배치 힌트 1',()=>{if(P.over||drag||hintButton.disabled)return;hideTutorial();const i=nodes.findIndex((p,i)=>Math.hypot(p.x-data.solution[i].x,p.y-data.solution[i].y)>1);if(i>=0){P.help();hintButton.disabled=true;hintButton.textContent='배치 힌트 0';keyPeg=i;set(i,data.solution[i].x,data.solution[i].y);P.move();check();}});redraw();
     if(P.level===1)P.say('👆 1번 점을 오른쪽 동그라미까지 끌어 보세요. 줄이 겹치지 않으면 성공이에요.');
   });
 })();

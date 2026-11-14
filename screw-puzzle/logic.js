@@ -77,6 +77,20 @@
     {palette:[5,3,1,2,0,4],materials:['acrylic','metal','wood','acrylic','acrylic','acrylic'],name:'공구함 축제',hint:'여섯 기호와 두 회전문을 스무 번 안에 정리해요.',mechanics:['six','facets','doubleHinge','hinge','chain','ice','bonus','shapes','overlap','hidden','queue','L','buffer','colors'],queue:[0,2,1,4,3,5],buffer:2,moveLimit:20,
       plates:[q('hex',25,29,54,54,0,[s(.28,.42,5,chain(2,1)),s(.72,.42,3),s(.5,.75,5)]),q('triangle',10,17,78,72,0,[s(.5,.25,3),s(.25,.75,5),s(.75,.75,3)]),q('L',10,10,76,76,0,[s(.2,.2,4),s(.2,.8,1,ice(4,0)),s(.8,.8,4)]),q('bar',10,43,78,28,-12,[s(.18,.5,1),s(.5,.5,4),s(.82,.5,2)],{hinge:52}),q('trapezoid',14,14,72,42,5,[s(.2,.5,2),s(.5,.5,0),s(.8,.5,1)]),q('crown',7,18,82,36,-4,[s(.18,.5,0),s(.5,.5,2),s(.82,.5,0)],{hinge:-60})]}
   ];
+
+  // Difficulty pass (2026-11-14): toolbox order, spare slots and a few color swaps were searched per board so a
+  // random tapper clears early boards often and late boards rarely, while a solution always exists.
+  const tuning={3:{queue:[0,2,1],buffer:2},4:{queue:[2,0,1],buffer:2,colors:[[2,2],[1,0,0,1],[1,0,2]]},5:{queue:[0,2,1],buffer:2,colors:[[2],[1,0],[0,2,1],[1,0,2]]},
+    6:{queue:[0,1,2],buffer:1},7:{queue:[1,0,2],buffer:1},8:{queue:[2,1,0],buffer:1},9:{queue:[2,0,1,3],buffer:1},10:{queue:[2,1,0],buffer:1},
+    11:{queue:[2,1,0],buffer:1},12:{queue:[0,2,1],buffer:1,colors:[[0,0],[0],[1,1,2,2],[2,1]]},13:{queue:[2,1,0],buffer:2,colors:[[0,2,1],[2,0,1],[0,2,1]]},
+    14:{queue:[0,1,2,4,5,3],buffer:3},15:{queue:[3,2,1,0],buffer:1},16:{queue:[0,2,3,1],buffer:1},17:{queue:[2,0,3,4,1],buffer:1},18:{queue:[1,2,0,3],buffer:1},
+    19:{queue:[1,0,3,2],buffer:1},20:{queue:[0,2,3,4,1,5],buffer:2}};
+  for(const [n,t] of Object.entries(tuning)){
+    const d=designs[n-1];d.queue=t.queue;d.buffer=t.buffer;
+    if(t.colors)d.plates.forEach((q,p)=>{q.screws.forEach((sc,i)=>{sc.c=t.colors[p][i];});q.colors=q.screws.map(sc=>sc.c);});
+    d.mechanics=d.mechanics.filter(m=>m!=='tightBuffer');if(d.buffer===1)d.mechanics.unshift('tightBuffer');
+  }
+  designs[12].hint='아홉 번 안에 끝내요. 잠금 번호와 다음 공구함을 함께 살펴요.';
   function level(n){const d=JSON.parse(JSON.stringify(designs[Math.max(0,Math.min(designs.length-1,Math.floor(n)-1))]));d.queue=d.queue||[0,1];return d;}
   const fullMask=q=>(1<<q.screws.length)-1;
   const done=(d,st,p)=>st.removed[p]===fullMask(d.plates[p]);
@@ -103,10 +117,11 @@
     for(let i=0;i<state.tray.length;i++){const box=state.boxes.find(b=>b&&b.c===state.tray[i]&&b.n<3);if(box){box.n++;state.tray.splice(i,1);changed=true;break;}}
   }}
   function remove(data,state,p,s){if(!available(data,state,p,s))return null;const next=JSON.parse(JSON.stringify(state));next.moves++;
-    if(data.moveLimit&&next.moves>data.moveLimit){next.failed=true;return next;}
-    next.removed[p]|=1<<s;next.tray.push(data.plates[p].screws[s].c);settle(data,next);if(next.tray.length>data.buffer)return null;return next;
+    if(data.moveLimit&&next.moves>data.moveLimit){next.failed=true;next.reason='limit';return next;}
+    // A screw that fits neither an open box nor a free spare slot overflows the tray: the attempt fails.
+    next.removed[p]|=1<<s;next.tray.push(data.plates[p].screws[s].c);settle(data,next);if(next.tray.length>data.buffer){next.failed=true;next.reason='tray';}return next;
   }
-  function undo(data,state,previous){const next=JSON.parse(JSON.stringify(previous));next.moves=state.moves+1;next.failed=!!data.moveLimit&&next.moves>data.moveLimit;return next;}
+  function undo(data,state,previous){const next=JSON.parse(JSON.stringify(previous));next.moves=state.moves+1;next.failed=!!data.moveLimit&&next.moves>data.moveLimit;if(next.failed)next.reason='limit';return next;}
   function stuck(data,state){return !state.failed&&!solved(data,state)&&!data.plates.some((q,p)=>q.screws.some((_,s)=>remove(data,state,p,s)));}
   root.ScrewLogic={designs,mechanicHints,positions,level,initial,available,locked,remove,undo,stuck,worldPoint,pose,covers,polygon,fullMask,done,solved};
 })(typeof window==='undefined'?globalThis:window);

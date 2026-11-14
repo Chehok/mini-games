@@ -2,7 +2,8 @@
   'use strict';
   const P=AdPuzzle('water-sort'),L=WaterLogic,symbols=P.symbols,NS='http://www.w3.org/2000/svg';
   const names=['빨강 동그라미','파랑 세모','초록 네모','보라 마름모','갈색 별','회청 십자','분홍 하트','청록 오각형','주황 해','남색 물결'];
-  let tubes,initial,history,selected,extra,undoButton,extraButton,busy=false;
+  let tubes,initial,history,selected,extra,undoButton,extraButton,busy=false,colors=0,undoLeft=0;
+  const UNDO_LIMIT=2;
   const complete=t=>t.length===L.CAP&&t.every(c=>c===t[0]);
   P.$('instructions').textContent='같은 색 물을 한 시험관에 가득 모아요';
   function water(c){
@@ -12,7 +13,7 @@
     const board=P.$('board'),columns=tubes.length<=4?4:tubes.length<=6?3:tubes.length<=8?4:5;
     board.className='puzzle-board water-board';board.replaceChildren();board.style.setProperty('--columns',columns);board.dataset.rows=Math.ceil(tubes.length/columns);
     const count=tubes.filter(complete).length;
-    P.$('scene-meter').textContent='색깔 연구실 · 완성 '+count+' / '+(initial.length-2)+'개';
+    P.$('scene-meter').textContent='색깔 연구실 · 완성 '+count+' / '+colors+'개';
     tubes.forEach((tube,i)=>{
       const done=complete(tube),run=P.epoch;
       const b=P.button('',()=>{if(run===P.epoch)tap(i);},board);b.className='tube'+(selected===i?' selected':'')+(done?' tube-done':'');b.disabled=P.over;b.dataset.index=i;
@@ -27,7 +28,7 @@
       if(P.level===1&&!P.moves&&i===(selected===null?0:2)){
         const hand=document.createElement('span');hand.className='tutorial-hand';hand.textContent='👆';hand.setAttribute('aria-hidden','true');b.appendChild(hand);
       }
-    });undoButton.disabled=busy||!history.length||P.over;extraButton.disabled=busy||extra||P.over;
+    });undoButton.disabled=busy||!history.length||!undoLeft||P.over;undoButton.textContent='되돌리기 '+undoLeft;extraButton.disabled=busy||extra||P.over;
     if(focus!==undefined&&board.children[focus])board.children[focus].focus();
   }
   async function pour(from,to,next){
@@ -69,9 +70,12 @@
   }
   P.mount(()=>{
     busy=false;document.querySelectorAll('.water-flight').forEach(e=>e.remove());
-    initial=L.generate(P.level,MG.rng(P.level*7919)).tubes;tubes=initial.map(t=>t.slice());history=[];selected=null;extra=false;
-    undoButton=P.button('되돌리기',()=>{if(busy||!history.length||P.over)return;tubes=history.pop();if(extra&&tubes.length===initial.length)tubes.push([]);selected=null;P.say('한 번 되돌렸어요.');render();undoButton.focus();});
-    extraButton=P.button('빈 시험관 +1',()=>{if(busy||extra||P.over)return;tubes.push([]);extra=true;selected=null;P.say('빈 시험관을 하나 추가했어요.');render();});render();
+    const made=L.generate(P.level,MG.rng(P.level*7919));initial=made.tubes;colors=made.colors;
+    tubes=initial.map(t=>t.slice());history=[];selected=null;extra=false;undoLeft=UNDO_LIMIT;
+    // The generator's route is the par; the move limit adds the tier's slack.
+    P.goal({par:made.solution.length,limit:true});
+    undoButton=P.button('되돌리기',()=>{if(busy||!history.length||!undoLeft||P.over)return;undoLeft--;tubes=history.pop();if(extra&&tubes.length===initial.length)tubes.push([]);selected=null;P.say('한 번 되돌렸어요. 이동 횟수는 돌아오지 않아요. (남은 되돌리기 '+undoLeft+'번)');render();undoButton.focus();});
+    extraButton=P.button('빈 시험관 +1',()=>{if(busy||extra||P.over)return;tubes.push([]);extra=true;P.help();selected=null;P.say('빈 시험관을 하나 추가했어요. 이번 단계는 별이 최대 2개예요.');render();});render();
     P.say(P.level===1?'👆 첫 시험관을 눌러 보세요. 색과 기호가 같은 물끼리 모아요.':'시험관을 고르고 같은 색 위나 빈 시험관에 부어요.');
   });
 })();

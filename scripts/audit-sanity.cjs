@@ -120,14 +120,41 @@ for(const level of [...Array.from({length:40},(_,i)=>i+1),80,250,9999])for(let s
 }
 assert.equal(W.pour([[0],[1],[],[]],0,1),null);
 assert.equal(W.pour([[0],[0,0,0,0]],0,1),null);
-assert(Park.designs.length>=15&&Park.designs.length<=20,'15–20 parking levels');
-for(let level=1;level<=Park.designs.length;level++) {
+// Parking lots are generated per level: valid, solvable, and harder as levels rise.
+const parkBands=[];
+for(const level of [...Array.from({length:60},(_,i)=>i+1),100,250,9999]) {
   const cars=Park.level(level),occupied=new Set();
-  assert(cars.some((car,i)=>!Park.canExit(cars,i)),'parking starts with at least one blocked car');
+  if(level>1)assert(cars.some((car,i)=>!Park.canExit(cars,i)),'parking starts with at least one blocked car');
   for(const c of cars){assert(c.len>=2&&c.len<=3);for(const [x,y] of Park.cells(c)){assert(x>=0&&x<6&&y>=0&&y<6);const k=x+','+y;assert(!occupied.has(k),'parking overlap');occupied.add(k);}}
-  assert(bfs(cars,s=>s.map(c=>c?c.id:'.').join(''),s=>s.every(c=>!c),s=>{
-    const out=[];s.forEach((c,i)=>{if(c&&Park.canExit(s,i)){const n=s.slice();n[i]=null;out.push(n);}});return out;
-  }), 'parking '+level+' BFS solvable');
+  const m=Park.measure(cars,false);assert(m.solvable,'parking '+level+' solvable');
+  assert.deepEqual(Park.level(level).map(c=>c.id+c.x+c.y+c.axis+c.dir),cars.map(c=>c.id+c.x+c.y+c.axis+c.dir),'parking '+level+' is the same lot every time');
+  if(level<=60)(parkBands[Math.floor((level-1)/20)]||=[]).push(m);
+}
+{
+  const avg=(band,k)=>band.reduce((n,m)=>n+m[k],0)/band.length;
+  const [a,b,c]=parkBands;
+  assert(avg(a,'depth')+2<avg(b,'depth')&&avg(c,'depth')>=avg(b,'depth')-.5,'parking chains get longer, then hold: '+[a,b,c].map(x=>avg(x,'depth').toFixed(1)));
+  assert(avg(a,'free')>avg(c,'free'),'later parking lots start with fewer free cars');
+  const odds=[2,12,25].map(n=>Park.measure(Park.level(n)).odds);
+  assert(odds[0]>odds[1]&&odds[1]>=odds[2],'random tapping survives less often later: '+odds.map(o=>(o*100).toFixed(2)+'%'));
+}
+// Water and untangle: random play wins less as levels rise, within the shared move limits.
+{
+  const T=window=>window; // placeholder to keep scope local
+  const slack=l=>l%10===0?p=>Math.max(1,Math.ceil(p*.1)):l<=5?p=>Math.ceil(p)+2:l<=20?p=>Math.ceil(p*.5)+1:p=>Math.ceil(p*.25)+1;
+  const seeded=L=>{let a=L*7919;return ()=>{a=(Math.imul(a,1664525)+1013904223)>>>0;return a/4294967296;};};
+  function randomWin(level){
+    const g=W.generate(level,seeded(level)),limit=g.solution.length+slack(level)(g.solution.length);let win=0;
+    for(let t=0;t<200;t++){let tubes=g.tubes;for(let k=0;k<limit;k++){const o=[];for(let a=0;a<tubes.length;a++)for(let b=0;b<tubes.length;b++){const x=W.pour(tubes,a,b);if(x)o.push(x);}if(!o.length)break;tubes=o[Math.floor(rnd()*o.length)];if(W.solved(tubes)){win++;break;}}}
+    return win/200;
+  }
+  const early=[2,3,4].map(randomWin),mid=[16,17,18].map(randomWin),late=[30,40,60].map(randomWin);
+  const mean=a=>a.reduce((x,y)=>x+y,0)/a.length;
+  assert(mean(early)>.5&&mean(mid)<mean(early)&&mean(late)<.1,'water random wins fall: '+[early,mid,late].map(a=>(mean(a)*100).toFixed(1)+'%'));
+  for(const level of [16,17,18,19,20])assert.equal(W.generate(level,seeded(level)).tubes.filter(t=>!t.length).length,W.generate(level,seeded(level)).colors<=7?1:2,'one spare tube on mid boards from 16');
+  const pegs=[2,8,15,25].map(n=>U.generate(n,seeded(n)));
+  for(let i=1;i<pegs.length;i++)assert(U.crossings(pegs[i].nodes,pegs[i].edges).length>U.crossings(pegs[i-1].nodes,pegs[i-1].edges).length,'untangle boards get more tangled');
+  for(const [i,g] of pegs.entries()){assert(U.clear(g.solution,g.edges),'untangle answer layout is planar');assert(g.par>=1&&g.par<=g.nodes.length);}
 }
 // Compare actual geometry, ignoring names, hints, colors, materials and mechanics.
 // Pairwise tolerances also catch tiny shifts that evade an exact hash/grid boundary.
@@ -193,11 +220,14 @@ for(let level=1;level<=Screw.designs.length;level++) {
 }
 assert(hingeCoverageChanges>=7,'hinges really change lower screw coverage');
 assert(crossedLayerSolutions>=3,'several solutions must revisit upper plates after removing exposed lower screws');
-// This board cannot be solved by simply stripping every plate from the top down.
+// Overflowing the spare slots fails the attempt (it is no longer refused), and the later boards punish random tapping.
 {
- const d=Screw.level(8);let state=Screw.initial(d);for(const [p,s] of [[2,0],[2,1],[2,2]])state=Screw.remove(d,state,p,s);
- assert.equal(state.tray.length,1);assert(Screw.available(d,state,1,0));assert.equal(Screw.remove(d,state,1,0),null,'one-slot buffer prevents the obvious next screw');
- assert(Screw.remove(d,state,0,0),'exposed lower screw unlocks progress');
+ let overflow=0,seed2=3;const r2=()=>{seed2=(Math.imul(seed2,1664525)+1013904223)>>>0;return seed2/4294967296;};
+ const odds=n=>{const d=Screw.level(n);let ok=0;for(let k=0;k<300;k++){let st=Screw.initial(d);while(!st.failed&&!Screw.solved(d,st)){const av=[];d.plates.forEach((q,p)=>q.screws.forEach((_,s)=>{if(Screw.available(d,st,p,s))av.push([p,s]);}));if(!av.length)break;const [p,s]=av[Math.floor(r2()*av.length)];st=Screw.remove(d,st,p,s);if(st.failed){assert(['tray','limit'].includes(st.reason));if(st.reason==='tray'){overflow++;assert(st.tray.length>d.buffer);}}}if(Screw.solved(d,st))ok++;}return ok/300;};
+ const early=odds(3),late=[16,17,19,20].map(odds);
+ assert(overflow>0,'overflow is a real failure');
+ assert(early>.5&&late.every(o=>o<.3),'screw difficulty rises: early '+early+' late '+late);
+ for(let n=1;n<=Screw.designs.length;n++){const d=Screw.level(n);assert.equal(d.mechanics.includes('tightBuffer'),d.buffer===1,'tightBuffer hint matches one spare slot '+n);}
 }
 let untangleWitnesses=0;
 for(const level of [...Array.from({length:60},(_,i)=>i+1),250,9999])for(let sample=0;sample<4;sample++) {
@@ -258,7 +288,7 @@ assert.equal(U.generate(1,rnd).nodes.length,4,'untangle tutorial starts with fou
 assert(U.clear([U.generate(1,rnd).solution[0],...U.generate(1,rnd).nodes.slice(1)],U.generate(1,rnd).edges),'one peg solves the untangle tutorial');
 assert.equal(W.generate(25,rnd).colors,10,'water grows to ten colors');
 assert.equal(W.generate(9999,rnd).colors,10,'water remains bounded');
-console.log(`PASS: water small-case BFS + ${waterWitnesses} reverse-shuffle solution witnesses (2–10 colors); ${Park.designs.length} parking BFS; ${Screw.designs.length} screw + ${Pin.designs.length} independent physical pin searches; exact/near layout comparisons + per-mechanic hints + separated pin targets; screw locks/conservation/hinges/budgets; pin deterministic replay/cup piles/side bins + ${wrongOrders} wrong-order failures + locks/paint/cup quotas/rapid-pull/lost-gem checks; ${untangleWitnesses} planar untangle solutions (through level 9,999)`);
+console.log(`PASS: water small-case BFS + ${waterWitnesses} reverse-shuffle solution witnesses (2–10 colors, solver-checked shuffles from level 6); 63 generated parking lots with rising chains; falling random-play wins for water; ${Screw.designs.length} screw + ${Pin.designs.length} independent physical pin searches; exact/near layout comparisons + per-mechanic hints + separated pin targets; screw locks/conservation/hinges/budgets; pin deterministic replay/cup piles/side bins + ${wrongOrders} wrong-order failures + locks/paint/cup quotas/rapid-pull/lost-gem checks; ${untangleWitnesses} planar untangle solutions (through level 9,999)`);
 
 // Run real controllers with a small DOM/RAF harness. This checks resets during async
 // pours/flights/driving and progress persistence without pretending to be a browser.
@@ -289,16 +319,21 @@ const {adController}=require('./ad-controller-harness.cjs');
       g.all('.car')[index].click();await settle();assert.equal(g.all('.car').length,cars.length-1);
       assert.equal(g.ids.get('scene-meter').textContent,'목표 '+cars.length+'대 · 탈출 1 / '+cars.length+'대');
     }else{
-      g.all('.graph-node')[0].dispatch('keydown',{key:'ArrowLeft'});assert.equal(g.ids.get('moves').textContent,1);g.press('restart');
-      for(let i=0;i<10&&g.ids.get('next').disabled;i++)g.ids.get('extras').children[0].click();assert(!g.ids.get('next').disabled,'untangle hint solution wins');
+      g.all('.graph-node')[0].dispatch('keydown',{key:'ArrowLeft'});g.all('.graph-node')[0].dispatch('keydown',{key:'ArrowLeft'});assert.equal(g.ids.get('moves').textContent,1,'arrow presses on one peg are one move');
+      const before=g.saved.get('untangle.hearts')?.n??5;g.press('restart');assert.equal(g.saved.get('untangle.hearts').n,before-1,'restarting a started attempt costs a heart');
+      g.ids.get('extras').children[0].click();assert(!g.ids.get('next').disabled,'untangle hint solves the one-peg tutorial');assert(g.ids.get('extras').children[0].disabled,'the placement hint is single-use');
       assert.equal(g.all('.puzzle-clear').length,1);assert.equal(g.all('.crossing-point').length,0,'solved ropes have no crossing glow');
+      assert.equal(g.all('.clear-stars')[0].textContent,'★ ★ ☆','a helper caps the stars at two');assert.equal(g.saved.get('untangle.stars')[1],2);
     }
     g.press('restart');await settle();assert.equal(g.ids.get('moves').textContent,0);assert(g.ids.get('next').disabled);
     g.all('.sound-toggle')[0].click();g.press('restart');assert.equal(g.all('.sound-toggle')[0].getAttribute('aria-pressed'),'true');
   }
   const legacy=adController('water-sort',25);assert.equal(legacy.ids.get('board').children.length,12);assert.equal(legacy.saved.get('water-sort.level'),25,'legacy progress key stays compatible');
-  for(const dir of ['pin-pull','screw-puzzle','parking-jam']){
-    const old=adController(dir,999,{unlocked:999});assert.equal(old.saved.get(dir+'.level'),dir==='parking-jam'?18:20,'legacy level clamps to the new maximum');assert.equal(old.saved.get(dir+'.unlocked'),dir==='parking-jam'?18:20,'legacy unlock clamps too');
+  for(const dir of ['pin-pull','screw-puzzle']){
+    const old=adController(dir,999,{unlocked:999});assert.equal(old.saved.get(dir+'.level'),20,'legacy level clamps to the new maximum');assert.equal(old.saved.get(dir+'.unlocked'),20,'legacy unlock clamps too');
+  }
+  {
+    const old=adController('parking-jam',999,{unlocked:999});assert.equal(old.saved.get('parking-jam.level'),999,'generated parking keeps far progress');
   }
   {
     const g=adController('water-sort');
@@ -316,7 +351,7 @@ const {adController}=require('./ad-controller-harness.cjs');
   }
   {
     const g=adController('parking-jam',1,{reduced:false}),cars=g.window.ParkingLogic.level(1),blocked=cars.findIndex((_,i)=>!g.window.ParkingLogic.canExit(cars,i));
-    g.all('.car')[blocked].click();assert.equal(g.ids.get('moves').textContent,0,'blocked car never counts as an exit');assert(g.animations[0].keyframes.some(k=>k.transform.includes('rotate')),'blocked car gently bounces and shakes');
+    g.all('.car')[blocked].click();assert.equal(g.ids.get('moves').textContent,0,'blocked car never counts as an exit');assert.equal(g.saved.get('parking-jam.hearts').n,4,'a crash costs one heart');assert(g.animations[0].keyframes.some(k=>k.transform.includes('rotate')),'blocked car gently bounces and shakes');
     g.finishAnimations();await settle();const open=cars.findIndex((_,i)=>g.window.ParkingLogic.canExit(cars,i));g.all('.car')[open].click();
     assert.equal(g.animations[0].keyframes.length,4,'exit accelerates through its lane');assert.equal(g.all('.active').length,1,'matching curb gap lights up');
     g.press('restart');g.finishAnimations();await settle();assert.equal(g.all('.car').length,cars.length);assert.equal(g.ids.get('moves').textContent,0,'restart cancels actual driving');
@@ -333,6 +368,31 @@ const {adController}=require('./ad-controller-harness.cjs');
     assert.equal(node.getAttribute('aria-label'),label,'pointer cancellation restores the peg');assert.equal(g.ids.get('moves').textContent,0);
     node.dispatch('pointerdown');node.dispatch('pointermove',{clientX:134.32,clientY:209.68});node.dispatch('pointerup');
     assert(!g.ids.get('next').disabled,'dragging the tutorial peg to its ring solves the actual controller');assert.equal(g.ids.get('moves').textContent,1);assert.equal(g.all('.puzzle-clear').length,1);
+  }
+  {
+    // Hearts: five crashes empty them, the gate blocks play, and time brings one back.
+    const g=adController('parking-jam',2),cars=g.window.ParkingLogic.level(2),blocked=cars.findIndex((_,i)=>!g.window.ParkingLogic.canExit(cars,i));
+    for(let i=0;i<5;i++){g.all('.car').find(b=>+b.dataset.index===blocked).click();await settle();}
+    assert.equal(g.saved.get('parking-jam.hearts').n,0);assert(/하트를 다 썼어요/.test(g.ids.get('status').textContent));
+    g.press('restart');assert.equal(g.all('.heart-gate').length,1,'no hearts: the board is gated');assert(g.ids.get('restart').disabled);
+    g.all('.car')[0].click();await settle();assert.equal(g.all('.car').length,cars.length,'gated board ignores taps');
+    const later=adController('parking-jam',2,{saved:new Map([['parking-jam.hearts',{n:0,t:Date.now()-g.window.AdPuzzle.REGEN_MS-1000}]])});
+    assert.equal(later.saved.get('parking-jam.hearts').n,1,'one heart returns after 20 minutes');assert.equal(later.all('.heart-gate').length,0);
+    const left=adController('water-sort',3,{saved:new Map([['water-sort.attempt',3]])});
+    assert.equal(left.saved.get('water-sort.hearts').n,4,'leaving mid-attempt costs a heart on return');assert.equal(left.saved.get('water-sort.attempt'),null);
+  }
+  {
+    // Water: the move limit fails the attempt and stars follow par.
+    const g=adController('water-sort',8),goal=g.all('.puzzle-goal')[0];assert(!goal.hidden&&/★3 \d+번 이하/.test(goal.textContent)&&/최대 \d+번/.test(goal.textContent),'goal line shows par and limit');
+    const L=g.window.WaterLogic,limit=Number(goal.textContent.match(/최대 (\d+)번/)[1]);
+    const tubes=()=>g.ids.get('board').children.map(t=>t.querySelectorAll('.water').map(c=>Number(c.className.split('color-')[1])));
+    for(let k=0;k<limit&&!g.ids.get('board').classList.contains('failed');k++){
+      // Any legal pour that does not finish the board; the limit must end the attempt.
+      const t=tubes();let mv=null;for(let a=0;a<t.length&&!mv;a++)for(let b=0;b<t.length&&!mv;b++){const n=L.pour(t,a,b);if(n&&!L.solved(n))mv=[a,b];}
+      assert(mv,'a non-finishing pour exists');
+      g.ids.get('board').children[mv[0]].click();g.ids.get('board').children[mv[1]].click();await settle();
+    }
+    assert(g.ids.get('board').classList.contains('failed'),'running out of moves fails');assert.equal(g.saved.get('water-sort.hearts').n,4);
   }
   {
     const g=adController('screw-puzzle',1,{reduced:false});

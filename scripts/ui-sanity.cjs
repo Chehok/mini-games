@@ -106,7 +106,7 @@ function contrast(fg, bg) {
         if(page==='pin-pull') assert(await evaluate(`document.querySelector('canvas').width >= document.querySelector('canvas').clientWidth * devicePixelRatio - 3`), 'pin canvas DPR');
         if(width===390) assert(await evaluate(`document.querySelector('#next').getBoundingClientRect().bottom<=innerHeight`),page+': board, HUD and actions fit 390×844');
         if(page==='water-sort') assert(await evaluate(`document.querySelectorAll('.tube-glass').length===document.querySelectorAll('.tube').length && Array.from(document.querySelectorAll('.water')).every(w=>w.textContent.trim()) && !!document.querySelector('.tutorial-hand')`),'glass tubes, permanent symbols and first-pour tutorial');
-        if(page==='parking-jam') assert(await evaluate(`document.querySelectorAll('.car-roof').length===document.querySelectorAll('.car').length && !!document.querySelector('.parking-curb') && !!document.querySelector('.exit-port') && document.querySelector('.puzzle-settings select').options.length===18 && document.querySelector('#scene-meter').textContent.includes('탈출 0 /')`),'painted lot, detailed cars, exits, 18 stages and exited meter');
+        if(page==='parking-jam') assert(await evaluate(`document.querySelectorAll('.car-roof').length===document.querySelectorAll('.car').length && !!document.querySelector('.parking-curb') && !!document.querySelector('.exit-port') && document.querySelector('.puzzle-settings select').options.length>=2 && document.querySelector('#scene-meter').textContent.includes('탈출 0 /') && !document.querySelector('.puzzle-goal').hidden`),'painted lot, detailed cars, exits, generated stages, goal line and exited meter');
         if(page==='untangle') assert(await evaluate(`!!document.querySelector('.rope-base') && !!document.querySelector('.crossing-point') && document.querySelectorAll('.graph-node').length===4 && !!document.querySelector('.peg-destination')`),'shaded ropes, crossing glows and four-peg tutorial');
         if([320,390,1280].includes(width)) {
           const png=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:true,clip:{x:0,y:0,width,height:await evaluate('document.documentElement.scrollHeight'),scale:1}});
@@ -176,7 +176,7 @@ function contrast(fg, bg) {
       if(page==='pin-pull') assert(await evaluate(`document.querySelector('canvas').width >= document.querySelector('canvas').clientWidth * devicePixelRatio - 3`), 'dense pin canvas DPR');
       if(width===390) assert(await evaluate(`document.querySelector('#next').getBoundingClientRect().bottom<=innerHeight`),page+': late-stage actions fit 390×844');
       if(page==='water-sort') assert.equal(await evaluate(`document.querySelectorAll('.tube').length`),12,'ten colors plus two empty tubes');
-      if(page==='untangle') assert.equal(await evaluate(`document.querySelectorAll('.graph-node').length`),10,'later stages cap at ten pegs');
+      if(page==='untangle') assert.equal(await evaluate(`document.querySelectorAll('.graph-node').length`),12,'later stages cap at twelve pegs');
       const png=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:true,clip:{x:0,y:0,width,height:await evaluate('document.documentElement.scrollHeight'),scale:1}});
       fs.writeFileSync(path.join(profile,`${page}-dense-${width}-${theme}.png`),Buffer.from(png.data,'base64'));
       await evaluate(`document.querySelector('.sound-toggle').click(); document.querySelector('#restart').click()`);
@@ -193,7 +193,7 @@ function contrast(fg, bg) {
       assert(await evaluate(`document.querySelectorAll('.tube-cork').length===2 && !!document.querySelector('.puzzle-clear') && !document.querySelector('#next').disabled`),'water corks and stars banner');
     }else if(page==='parking-jam') {
       await evaluate(`(async()=>{const cars=ParkingLogic.level(1);while(cars.some(Boolean)){const i=cars.findIndex((c,i)=>c&&ParkingLogic.canExit(cars,i));document.querySelector('.car[data-index="'+i+'"]').click();await new Promise(r=>setTimeout(r,0));cars[i]=null;}})()`);
-      assert(await evaluate(`!document.querySelector('.car') && !!document.querySelector('.puzzle-clear') && document.querySelector('#scene-meter').textContent.includes('탈출 5 / 5')`),'all cars exit with final count and stars');
+      assert(await evaluate(`!document.querySelector('.car') && !!document.querySelector('.puzzle-clear') && document.querySelector('#scene-meter').textContent.includes('탈출 3 / 3')`),'all cars exit with final count and stars');
     }else {
       await evaluate(`document.querySelector('#extras button').click()`);
       assert(await evaluate(`!!document.querySelector('.puzzle-clear') && !document.querySelector('.crossing-point') && getComputedStyle(document.querySelector('.rope-color')).stroke==='rgb(239, 189, 72)'`),'solved ropes are gold with stars');

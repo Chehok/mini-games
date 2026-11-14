@@ -37,7 +37,7 @@ const flush=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
         for(const b of handles){assert(b.getAttribute('aria-label'));const x=parseFloat(b.style.left)/100*canvas.clientWidth;assert(x>=22&&x<=canvas.clientWidth-22,'pin target remains inside a 320px board');}
       }else{
         assert.equal(g.all('.screw').length,d.plates.reduce((n,q)=>n+q.screws.length,0));assert.equal(g.all('.buffer-slot').length,d.buffer);assert.equal(g.all('.box-queue').length,1);
-        assert.equal(g.all('.queue-chip').length,d.queue.length-2);assert.equal(g.all('.move-budget').length,d.moveLimit?1:0);
+        assert.equal(g.all('.queue-chip').length,d.queue.length-2);assert.equal(g.all('.move-budget').length,0);
         assert.equal(g.all('.screw-lock').length,d.plates.flatMap(q=>q.screws).filter(s=>s.lock).length);
         for(const b of g.all('.screw'))assert(b.getAttribute('aria-label'));
       }
@@ -118,8 +118,14 @@ const flush=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
     const g=adController('pin-pull',10);g.all('.pin-handle')[0].click();assert.equal(g.ids.get('moves').textContent,0);assert(g.ids.get('status').textContent.includes('열쇠 A'));
     const h=adController('screw-puzzle',6);h.all('.screw').find(b=>b.classList.contains('locked')).click();await flush();assert.equal(h.ids.get('moves').textContent,0);assert(h.ids.get('status').textContent.includes('번 나사'));
     const b=adController('screw-puzzle',13);
-    for(let i=0;i<5;i++){b.all('.screw').find(s=>s.getAttribute('aria-disabled')==='false').click();await flush();b.ids.get('extras').children[0].click();}
-    assert(b.ids.get('board').classList.contains('failed'),'undo consumes the bonus budget');assert(b.ids.get('status').textContent.includes('횟수'));
+    {
+      const L0=b.window.ScrewLogic,path=solveScrew(L0,L0.level(13));
+      const [p0,s0]=path[0];b.all('.screw').find(screw=>+screw.dataset.screw===p0*4+s0).click();await flush();
+      b.ids.get('extras').children[0].click();
+      assert(b.ids.get('extras').children[0].disabled,'normal boards allow one undo');
+      for(const [p,s] of path){if(b.ids.get('board').classList.contains('failed'))break;b.all('.screw').find(screw=>+screw.dataset.screw===p*4+s).click();await flush();}
+    }
+    assert(b.ids.get('board').classList.contains('failed'),'undo consumes the bonus budget');assert(/횟수|다 썼어요/.test(b.ids.get('status').textContent));
     b.press('restart');assert(!b.ids.get('board').classList.contains('failed'));
     const L=b.window.ScrewLogic;for(const [p,s] of solveScrew(L,L.level(13))){b.all('.screw').find(screw=>+screw.dataset.screw===p*4+s).click();await flush();}
     assert(!b.ids.get('next').disabled,'restart recovers an exhausted bonus budget');

@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  const L=ParkingLogic,P=AdPuzzle('parking-jam',L.designs.length);
+  const L=ParkingLogic,P=AdPuzzle('parking-jam');
   let cars,total,busy=false;
   const direction=c=>c.axis==='h'?(c.dir>0?'→':'←'):(c.dir>0?'↓':'↑');
   P.$('instructions').textContent='앞길이 열린 차부터 모두 내보내요';
@@ -9,7 +9,7 @@
     if(P.over||busy||!cars[i])return;
     const car=cars[i],run=P.epoch,axis=car.axis==='h'?'X':'Y';busy=true;
     if(!L.canExit(cars,i)){
-      P.feedback('error');P.say(car.id+'번 차 앞에 다른 차가 있어요. 열린 길부터 찾아요.');
+      P.mistake(car.id+'번 차가 앞차에 부딪혔어요!');
       await P.animate(b,[{transform:'translate'+axis+'(0)'},{transform:'translate'+axis+'('+car.dir*5+'px)',offset:.35},{transform:'translate'+axis+'(-2px) rotate(-1deg)',offset:.6},{transform:'translate'+axis+'(1px) rotate(1deg)',offset:.8},{transform:'translate'+axis+'(0) rotate(0)'}],{duration:320});
       if(run===P.epoch)busy=false;return;
     }
@@ -54,5 +54,5 @@
     });
     if(focus!==undefined){const buttons=Array.from(lot.querySelectorAll('button')),next=buttons.find(b=>+b.dataset.index>focus)||buttons[0];if(next)next.focus();}
   }
-  P.mount(()=>{busy=false;cars=L.level(P.level);total=cars.length;render();P.say(P.level===1?'👆 손가락이 가리키는 차를 눌러 보세요. 화살표 방향으로 나가요.':'차는 화살표 방향으로 쭉 가요. 앞을 막은 차부터 보내 주세요.');});
+  P.mount(()=>{busy=false;cars=L.level(P.level);total=cars.length;P.goal({note:'막힌 차를 누르면 충돌'});render();P.say(P.level===1?'👆 손가락이 가리키는 차를 눌러 보세요. 화살표 방향으로 나가요.':'차는 화살표 방향으로 끝까지 가요. 막힌 차를 누르면 부딪혀서 하트가 줄어요.');});
 })();

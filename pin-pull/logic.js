@@ -22,7 +22,9 @@
     lock:'🔒 핀은 같은 글자의 열쇠 핀을 뽑으면 열려요.',
     key:'굴러가는 열쇠를 황금 받침에 보내면 잠금이 풀려요.',
     cups:'컵마다 필요한 수가 달라요. 모든 컵의 숫자를 채워요.',
-    trick:'모든 핀을 뽑지 않아도 돼요. 받침 다리는 남겨 주세요.'
+    trick:'모든 핀을 뽑지 않아도 돼요. 받침 다리는 남겨 주세요.',
+    station:'회색 보석은 정거장에서 색 보석과 만나요. 정거장 바닥은 마지막에 뽑아요.',
+    switch:'아래 선로는 밖으로 빠지는 길이에요. 무엇을 먼저 보낼지 정해요.'
   };
   const designs=[
     {theme:'lagoon',name:'첫 반짝임',mechanics:['horizontal','funnel'],hint:'황금 핀을 누르면 보석이 컵으로 내려와요.',
@@ -49,10 +51,10 @@
     {theme:'slate',name:'둥근 돌의 주차장',mechanics:['stone','pocket','horizontal','vertical','diagonal'],hint:'무거운 돌은 통로를 막아요. 옆 주차장으로 먼저 굴려 주세요.',
       walls:[w(100,25,100,105),w(290,25,290,180)],pins:[p(100,105,290,105,'보석 방'),p(130,250,290,180,'돌 경사로'),p(130,140,130,280,'돌 옆문',{kind:'drain'})],
       particles:[g(225,58),g(252,58),s(190,145)],cups:[c(100,305,320,2)],order:[2,1,0],wrong:[[1,0,2]]},
-    {theme:'lagoon',name:'두 개의 옆 주머니',hint:'작은 주머니를 지나 돌을 먼저 빼 주세요.',mechanics:['stone','pocket','cascade','horizontal','vertical','diagonal'],
-      walls:[w(160,25,160,115),w(300,25,300,250),w(120,285,195,285),w(120,285,120,310),w(160,25,230,10),w(230,10,300,25)],
-      pins:[p(300,115,160,115,'보석 선반'),p(170,215,300,150,'긴 경사로'),p(170,125,170,245,'주머니 문',{kind:'drain'})],
-      particles:[g(215,65),g(245,65),g(275,65),s(220,145)],cups:[c(205,325,320,3)],order:[2,1,0],wrong:[[1,0,2]]},
+    {theme:'orchid',name:'물감 정거장',mechanics:['station','paint','horizontal','vertical','diagonal'],hint:'회색 보석과 색 보석을 정거장에서 만나게 한 뒤 출발해요.',
+      walls:[w(60,25,60,205),w(170,25,170,110),w(222,25,222,90),w(320,25,320,150),w(320,150,226,168)],
+      pins:[p(60,110,170,110,'회색 방'),p(222,92,222,172,'색 주머니 문'),p(60,200,232,172,'정거장 바닥')],
+      particles:[a(95,70),a(130,70),g(275,125)],cups:[c(40,215,320,3)],order:[0,1,2],wrong:[[2,0,1],[0,2,1]]},
     {theme:'lemon',name:'열쇠 핀',mechanics:['lock','horizontal','vertical'],hint:'🔒 핀은 열쇠 핀을 뽑아야 열려요. 같은 열쇠 표시를 찾아요.',
       walls:[w(60,25,100,145),w(310,25,270,145),w(100,145,120,260),w(270,145,250,260)],pins:[p(90,145,280,145,'잠긴 보석 문',{lock:'A'}),p(42,80,42,145,'열쇠 A',{grants:'A'})],
       particles:[g(140,90),g(170,90),g(200,90),g(230,90)],cups:[c(85,285,315,4)],order:[1,0],wrong:[[0,1]]},
@@ -72,9 +74,10 @@
     {theme:'clay',name:'잠긴 진흙 온실',hint:'오른쪽 배수문이 보석 방의 열쇠예요.',mechanics:['mud','lock','trick','horizontal','vertical','diagonal'],
       walls:[w(75,25,75,110),w(75,25,185,8),w(185,8,295,25),w(295,25,295,210)],pins:[p(75,110,295,110,'잠긴 보석 방',{lock:'C'}),p(295,245,62,185,'왼쪽 높은 바닥'),p(295,155,295,275,'진흙 오른문',{kind:'drain',grants:'C'})],
       particles:[g(130,65),g(160,65),g(190,65),m(155,186),m(185,193),m(215,200)],cups:[c(55,270,325,3)],order:[2,1,0],wrong:[[0,2,1],[1,2,0]]},
-    {theme:'slate',name:'돌 아래 물감',hint:'돌을 치우고 물감을 섞은 뒤 출구를 열어요.',mechanics:['stone','paint','pocket','horizontal','vertical','diagonal'],
-      walls:[w(80,25,100,104),w(290,25,270,145),w(270,145,290,275),w(80,215,80,275)],pins:[p(290,104,80,104,'회색 방'),p(62,205,290,145,'돌 선반'),p(62,112,62,235,'돌 옆문',{kind:'drain'}),p(80,275,290,275,'물감 출구')],
-      particles:[a(155,58),a(185,58),s(130,120),g(200,240)],cups:[c(75,300,330,3)],order:[2,1,0,3],wrong:[[3,2,1,0],[1,0,3,2]]},
+    {theme:'clay',name:'진흙 기차의 선로',mechanics:['switch','mud','horizontal','diagonal'],hint:'아래 선로는 밖으로 빠지는 길이에요. 진흙과 보석 중 무엇을 먼저 보낼까요?',
+      walls:[w(110,25,110,195),w(250,25,250,195)],
+      pins:[p(110,95,250,95,'보석 바닥'),p(110,190,250,190,'진흙 바닥'),p(268,262,95,222,'바깥 선로')],
+      particles:[g(150,60),g(180,60),g(210,60),m(150,160),m(180,160),m(210,160)],cups:[c(85,245,320,3)],order:[1,2,0],wrong:[[0,1,2],[2,1,0]]},
     {theme:'lemon',name:'계단 아래 청소',hint:'진흙을 비우고 계단 끝문까지 열어 주세요.',mechanics:['mud','zigzag','cascade','horizontal','vertical','diagonal'],
       walls:[w(80,25,80,110),w(290,25,290,260),w(80,135,180,165)],pins:[p(290,105,80,105,'보석 위문'),p(62,270,290,210,'아래 경사'),p(62,180,62,295,'진흙 옆문',{kind:'drain'}),p(180,130,180,192,'계단 끝문')],
       particles:[g(120,60),g(150,60),g(180,60),m(155,220),m(185,212),m(215,204)],cups:[c(110,310,330,3)],order:[2,1,0,3],wrong:[[0,3,2,1],[1,0,2,3]]},
@@ -90,6 +93,13 @@
       pins:[p(165,100,35,100,'왼쪽 회색 방',{lock:'F'}),p(10,190,165,145,'돌 경사로'),p(10,105,10,218,'돌 열쇠 옆문',{kind:'drain',grants:'F'}),p(35,285,165,285,'왼쪽 물감 출구'),p(325,140,195,140,'오른쪽 회색 방',{lock:'F'}),p(325,260,195,260,'오른쪽 물감 출구')],
       particles:[a(80,55),a(110,55),s(85,120),g(100,247),a(245,85),a(275,85),g(260,220)],cups:[c(25,175,340,3),c(185,335,340,3)],order:[2,1,0,4,3,5],wrong:[[0,2,1,4,3,5],[3,5,2,1,0,4]]}
   ];
+  // Mirrored boards keep the same physics but put the side doors on the other wall.
+  function mirror(d){
+    const fx=x=>W-x,seg=o=>({...o,x1:fx(o.x1),x2:fx(o.x2)});
+    return {...d,walls:d.walls.map(seg),pins:d.pins.map(seg),particles:d.particles.map(b=>({...b,x:fx(b.x)})),
+      cups:d.cups.map(c=>({...c,x1:fx(c.x2),x2:fx(c.x1)})).reverse(),keyZones:(d.keyZones||[]).map(z=>({...z,x1:fx(z.x2),x2:fx(z.x1)}))};
+  }
+  for(const i of [14,18])designs[i]=mirror(designs[i]);
   function level(n){
     const d=JSON.parse(JSON.stringify(designs[Math.max(0,Math.min(designs.length-1,Math.floor(n)-1))]));
     d.width=W;d.height=420;d.total=d.particles.filter(b=>b.kind==='gem'||b.kind==='gray').length;d.target=d.total;

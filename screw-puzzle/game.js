@@ -1,7 +1,7 @@
 (function () {
   'use strict';
   const L=ScrewLogic,P=AdPuzzle('screw-puzzle',L.designs.length),symbols=P.symbols;
-  let data,state,history,undo,busy=false;
+  let data,state,history,undo,undoLeft=0,busy=false;
   P.$('instructions').textContent='같은 기호 나사를 3개씩 모아 주세요.';
   const rack=document.createElement('div');rack.id='boxes';rack.className='screw-rack';rack.setAttribute('aria-label','수집 공구함 두 개와 임시 칸 세 개');P.$('board').before(rack);
   function makeRack(incoming=[]){
@@ -18,8 +18,9 @@
       el.appendChild(sockets);boxes.appendChild(el);
     });
     const tray=document.createElement('div');tray.className='screw-tray';const title=document.createElement('span');title.textContent='임시 칸';tray.appendChild(title);
-    for(let i=0;i<data.buffer;i++){
-      const slot=document.createElement('span');slot.className='buffer-slot'+(state.tray[i]!==undefined?' filled color-'+state.tray[i]:'');slot.dataset.slot=i;
+    if(state.tray.length>data.buffer)tray.classList.add('overflow');
+    for(let i=0;i<Math.max(data.buffer,state.tray.length);i++){
+      const slot=document.createElement('span');slot.className='buffer-slot'+(state.tray[i]!==undefined?' filled color-'+state.tray[i]:'')+(i>=data.buffer?' spill':'');slot.dataset.slot=i;
       slot.textContent=state.tray[i]===undefined?'':symbols[state.tray[i]];tray.appendChild(slot);
     }
     const count=document.createElement('span');count.className='tray-count';count.textContent=state.tray.length+' / '+data.buffer;tray.appendChild(count);rack.appendChild(tray);
@@ -27,7 +28,6 @@
     const lead=document.createElement('span');lead.textContent='다음';queue.appendChild(lead);
     data.queue.slice(state.next).forEach(c=>{const chip=document.createElement('span');chip.className='queue-chip color-'+c;chip.textContent=symbols[c];queue.appendChild(chip);});
     if(state.next>=data.queue.length){const note=document.createElement('span');note.textContent='마지막 공구함이에요';queue.appendChild(note);}rack.appendChild(queue);
-    if(data.moveLimit){const budget=document.createElement('p');budget.className='move-budget';budget.textContent='보너스 · 사용 '+state.moves+' / '+data.moveLimit+'회 · 되돌리기도 1회';rack.appendChild(budget);}
 
   }
   async function shake(button,message){
@@ -38,8 +38,11 @@
     if(P.over||busy)return;
     if(!L.available(data,state,p,s)){const lock=data.plates[p].screws[s].lock;shake(button,L.locked(data,state,p,s)?(lock.type==='ice'?'❄ 얼음':'🔗 고리')+'을 열려면 '+(lock.p+1)+'번 판의 '+(lock.s+1)+'번 나사를 풀어 주세요.':'위 판에 가려진 나사예요. 드러난 나사부터 풀어 주세요.');return;}
     const next=L.remove(data,state,p,s);
-    if(!next){shake(button,'임시 칸이 가득 차요. 공구함과 같은 기호를 찾거나 되돌려 보세요.');return;}
-    if(next.failed){state=next;P.move();render();P.fail('보너스 횟수를 넘겼어요. 순서를 바꿔 도전해 보세요.');return;}
+    if(!next)return;
+    if(next.failed){
+      history.push(state);state=next;P.move();render();
+      P.fail(next.reason==='tray'?'임시 칸이 넘쳤어요! 넣을 곳이 없는 나사를 풀었어요. 다음 공구함 순서를 먼저 살펴요.':'보너스 횟수를 넘겼어요. 순서를 바꿔 도전해 보세요.');return;
+    }
     busy=true;undo.disabled=true;const run=P.epoch,c=data.plates[p].colors[s],old=state;
     P.$('board').querySelectorAll('.tutorial-hand').forEach(e=>e.remove());
     const rect=button.getBoundingClientRect(),boxIndex=state.boxes.findIndex(b=>b&&b.c===c);
@@ -83,7 +86,7 @@
     ],{duration:420,fill:'forwards'})));
     if(run!==P.epoch)return;
     history.push(old);state=next;busy=false;P.move();render(p*4+s,outgoing,old);
-    P.say('남은 판 '+data.plates.filter((_,p)=>!L.done(data,state,p)).length+'개 · 임시 칸 '+state.tray.length+'/'+data.buffer+'. 다음 공구함도 살펴 주세요.');
+    P.say('남은 판 '+data.plates.filter((_,p)=>!L.done(data,state,p)).length+'개 · 임시 칸 '+state.tray.length+'/'+data.buffer+(state.tray.length===data.buffer?' · 임시 칸이 꽉 찼어요! 공구함과 맞는 나사만 풀어요.':'. 다음 공구함도 살펴 주세요.'));
     if(L.solved(data,state))P.win();else if(L.stuck(data,state))P.fail('임시 칸이 차서 더 풀 수 있는 나사가 없어요. 공구함 순서를 살펴 주세요.');
   }
   function render(focus,incoming=[],previous){
@@ -114,14 +117,18 @@
       const hint=document.createElement('span');hint.className='tutorial-hand';hint.textContent='👆';hint.setAttribute('aria-hidden','true');
       hint.style.left=spot.x+'%';hint.style.top=spot.y+'%';board.appendChild(hint);
     }
-    undo.disabled=!history.length;
+    undo.disabled=!history.length||!undoLeft||P.over;undo.textContent='되돌리기 '+undoLeft;
     if(focus!==undefined){const buttons=Array.from(board.querySelectorAll('.screw')).filter(b=>b.getAttribute('aria-disabled')!=='true');const next=buttons.find(b=>+b.dataset.screw>=focus)||buttons[0];if(next)next.focus();}
   }
   P.mount(()=>{
     busy=false;data=L.level(P.level);state=L.initial(data);history=[];
     P.introduce(data,L.mechanicHints);
     document.querySelectorAll('.flying-screw').forEach(e=>e.remove());
-    undo=P.button('되돌리기',()=>{if(P.over||busy||!history.length)return;state=L.undo(data,state,history.pop());P.move();P.say('나사를 다시 끼웠어요. 되돌리기도 1회로 세어요.');render();if(state.failed)P.fail('보너스 횟수를 넘겼어요.');else undo.focus();});render();
+    // Undo is a limited helper: 쉬움 2, 보통·어려움 1, 보스 0. Using it caps the stars at 2.
+    undoLeft={easy:2,normal:1,hard:1,boss:0}[P.tier.key];
+    // Bonus boards show their move budget on the goal line; undo counts as a move there.
+    P.goal(data.moveLimit?{limit:data.moveLimit,note:'되돌리기도 1번'}:{note:'임시 칸이 넘치면 실패'});
+    undo=P.button('되돌리기',()=>{if(P.over||busy||!history.length||!undoLeft)return;undoLeft--;P.help();state=L.undo(data,state,history.pop());P.move();P.say('나사를 다시 끼웠어요. 이번 단계는 별이 최대 2개예요. (남은 되돌리기 '+undoLeft+'번)');render();if(state.failed)P.fail('보너스 횟수를 넘겼어요.');else undo.focus();});render();
     P.say(data.name+' · '+data.hint);
   });
 })();
