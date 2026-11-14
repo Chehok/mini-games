@@ -55,7 +55,7 @@ function contrast(fg, bg) {
     const msg = JSON.parse(event.data);
     if (msg.id) { const p=pending.get(msg.id); pending.delete(msg.id); msg.error?p.reject(msg.error):p.resolve(msg.result); }
     else if (msg.method==='Runtime.exceptionThrown') errors.push(msg.params.exceptionDetails);
-    else if (msg.method==='Log.entryAdded' && msg.params.entry.level==='error' && !/(gc\.zgo\.at|goatcounter\.com)/.test(msg.params.entry.url||msg.params.entry.text||'')) errors.push(msg.params.entry);
+    else if (msg.method==='Log.entryAdded' && msg.params.entry.level==='error' && !/(gc\.zgo\.at|goatcounter\.com|googlesyndication\.com|doubleclick\.net|googleads|adtrafficquality)/.test(msg.params.entry.url||msg.params.entry.text||'')) errors.push(msg.params.entry);
   });
   await cdp('Page.enable'); await cdp('Runtime.enable'); await cdp('Log.enable');
   const base='http://127.0.0.1:' + server.address().port + '/mini-games/';

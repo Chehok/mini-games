@@ -91,7 +91,9 @@ const files = fs.readdirSync(root, { recursive: true }).map(file => file.split(p
   }
   for (const browser of ['CriOS', 'FxiOS', 'EdgiOS', 'OPiOS']) assert(ui('iPhone Safari ' + browser).button.hidden);
   for (const page of files.filter(f => f.endsWith('.html'))) {
-    assert(/<script defer src="(?:\.\.\/)?assets\/pwa\.js\?v=/.test(read(page)), page + ': shared registration');
+    // 404.html is served for any missing path, so it uses root-absolute asset URLs without stamps.
+    if (page === '404.html') assert(read(page).includes('src="/assets/pwa.js"'), '404: shared registration');
+    else assert(/<script defer src="(?:\.\.\/)?assets\/pwa\.js\?v=/.test(read(page)), page + ': shared registration');
     assert(read(page).includes('rel="apple-touch-icon"'), page + ': Apple icon');
   }
   console.log('PASS: complete precache, subpath/offline routes and queries, cache cleanup, analytics/POST passthrough, Chrome/iOS/standalone install UI');

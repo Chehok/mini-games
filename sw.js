@@ -1,7 +1,9 @@
 // Bump this version whenever pages or local assets change to refresh offline copies.
-const CACHE_NAME = 'mini-games-v6';
+const CACHE_NAME = 'mini-games-v7';
 const PRECACHE = [
   "2048/index.html",
+  "404.html",
+  "about/index.html",
   "assets/ad-games.css",
   "assets/ad-puzzles.js",
   "assets/common.js",
@@ -15,6 +17,8 @@ const PRECACHE = [
   "assets/style.css",
   "chosung/index.html",
   "chosung/words.js",
+  "contact/index.html",
+  "guide/index.html",
   "index.html",
   "manifest.webmanifest",
   "memory/index.html",
@@ -25,6 +29,7 @@ const PRECACHE = [
   "pin-pull/game.js",
   "pin-pull/index.html",
   "pin-pull/logic.js",
+  "privacy/index.html",
   "puzzles/index.html",
   "screw-puzzle/game.js",
   "screw-puzzle/index.html",

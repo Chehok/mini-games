@@ -50,6 +50,13 @@
 
 - 초성 퀴즈 `chosung/words.js`: 일반 8개 카테고리(음식, 동물, 영화·드라마, 속담·사자성어, 나라·도시, 직업, 일상 사물, 브랜드·장소) + 성경 4개 카테고리(성경 인물, 성경 지명, 성경 사건·이야기, 성경 물건·용어, 개역개정 표기). 초성은 실행 시 한글 음절에서 계산해요.
 
+## 사이트 안내 페이지 · 광고
+
+- `about/` 소개, `guide/` 이용 가이드, `contact/` 문의(GitHub 이슈), `privacy/` 개인정보처리방침, `404.html`, `robots.txt`, `sitemap.xml`, `ads.txt`
+- 허브 아래쪽과 안내 페이지 아래쪽에 네 페이지로 가는 링크가 있어요.
+- 안내 페이지 내용은 `scripts/make-pages.py`에 있어요. 고친 뒤 `python3 scripts/make-pages.py && node scripts/stamp-assets.js`로 다시 만들어요.
+- 모든 페이지에 Google 애드센스 스크립트와 Google·네이버 사이트 확인 태그가 있어요. 광고 쿠키 안내는 개인정보처리방침 6항에 있어요.
+
 ## 폴더 구조
 
 ```

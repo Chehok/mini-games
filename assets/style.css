@@ -319,3 +319,42 @@ main, .panel, .row > *, .card > div { min-width: 0; }
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
   .btn:active, .hub .card:active { transform: none; }
 }
+
+/* ---------- site pages: 소개 · 이용 가이드 · 문의 · 개인정보처리방침 · 404 ---------- */
+main.doc { width: 100%; max-width: 680px; margin: 0 auto; padding: 24px 18px 40px; line-height: 1.75; color: var(--text-2); }
+.doc h2 { margin: 36px 0 10px; color: var(--text); font-size: 1.3rem; font-weight: 900; letter-spacing: -.03em; line-height: 1.35; scroll-margin-top: 80px; }
+.doc h3 { margin: 22px 0 6px; color: var(--text); font-size: 1.05rem; font-weight: 800; }
+.doc p, .doc ul, .doc dl { margin: 8px 0; }
+.doc ul { padding-left: 1.2em; }
+.doc li { margin: 4px 0; }
+.doc a:not(.btn) { color: var(--accent-ink); font-weight: 700; text-underline-offset: 3px; }
+.doc strong { color: var(--text); }
+.doc .doc-lead { margin: 4px 0 8px; color: var(--text); font-size: 1.08rem; line-height: 1.7; }
+.doc .doc-note { color: var(--muted); font-size: .9rem; }
+.doc-toc { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 4px; }
+.doc .doc-toc a {
+  display: inline-flex; align-items: center; min-height: 40px; padding: 6px 12px; border-radius: 999px;
+  background: var(--surface); border: 2px solid var(--border); color: var(--text); font-size: .88rem; font-weight: 800; text-decoration: none;
+}
+.doc-games dt, .doc-faq dt { margin-top: 18px; color: var(--text); font-weight: 900; font-size: 1.05rem; }
+.doc-games dt a { color: var(--text) !important; text-decoration: none; }
+.doc-games dd, .doc-faq dd { margin: 4px 0 0; }
+.doc-card { margin: 12px 0; padding: 18px; border: 2px solid var(--border); border-radius: var(--radius); background: var(--surface); box-shadow: 0 3px 0 var(--edge); }
+.doc-card h3 { margin-top: 0; }
+.doc-card .btn { display: inline-flex; align-items: center; text-decoration: none; }
+.doc-table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: .94rem; background: var(--surface); border: 2px solid var(--border); border-radius: 12px; overflow: hidden; }
+.doc-table th, .doc-table td { padding: 10px 12px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--border); }
+.doc-table th { color: var(--text); background: var(--surface-2); font-weight: 800; white-space: nowrap; }
+.doc-table td:first-child { color: var(--text); font-weight: 700; white-space: nowrap; }
+.doc-center { text-align: center; padding-top: 48px; }
+.doc-big { font-size: 3.4rem; margin: 0; }
+.doc-center .btn { display: inline-flex; align-items: center; text-decoration: none; }
+
+/* Footer links shared by the hubs and site pages. */
+.site-footer { max-width: 680px; margin: 0 auto; padding: 8px 18px 36px; text-align: center; color: var(--muted); font-size: .85rem; }
+.site-footer nav, .hub-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px; margin-bottom: 8px; }
+.site-footer nav a, .hub-links a { display: inline-flex; align-items: center; min-height: 44px; color: var(--text-2); font-weight: 700; text-decoration: none; }
+.site-footer nav a:hover, .hub-links a:hover { color: var(--text); text-decoration: underline; }
+.site-footer nav a[aria-current="page"] { color: var(--text); text-decoration: underline; text-underline-offset: 4px; }
+.site-footer p { margin: 0; }
+@media (max-width: 420px) { .doc-table td:first-child { white-space: normal; } }
