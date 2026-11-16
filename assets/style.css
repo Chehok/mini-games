@@ -53,6 +53,7 @@
 [data-game="memory"] { --accent: #be185d; }
 [data-game="wordle"] { --accent: #6d28d9; }
 [data-game="chosung"] { --accent: #a15c07; }
+[data-game="blocks"] { --accent: #4d7c0f; }
 [data-game="pin-pull"] { --accent: #b45309; }
 [data-game="water-sort"] { --accent: #0e7490; }
 [data-game="screw-puzzle"] { --accent: #475569; }

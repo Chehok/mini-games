@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <link rel="icon" type="image/png" sizes="32x32" href="../assets/icons/favicon-32.png?v=2966e46c">
+  <link rel="icon" type="image/svg+xml" sizes="any" href="../assets/icons/icon.svg?v=ce2c3834">
+  <link rel="apple-touch-icon" sizes="180x180" href="../assets/icons/apple-touch-icon-180.png?v=8fe226b3">
+  <link rel="manifest" href="../manifest.webmanifest?v=bb8c639b">
+  <meta name="theme-color" content="#e8ecf3" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#10131c" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-title" content="미니게임">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>블록 쌓기 · 미니게임</title>
+  <meta name="description" content="떨어지는 블록을 돌리고 옮겨 가로줄을 채워 지우는 게임. 보관, 다음 블록 미리 보기, 터치와 키보드 조작을 지원해요.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="stylesheet" href="../assets/style.css?v=2dfbc470">
+  <style>
+    .statbar { flex-wrap: nowrap; margin-bottom: 10px; }
+    .statbar .stat { min-width: 0; flex: 1 1 0; padding: 5px 4px 7px; }
+    .statbar .stat .value { font-size: 1.2rem; }
+    .stage { display: flex; justify-content: center; align-items: flex-start; gap: 8px; }
+    .well {
+      position: relative; flex: none; border: 3px solid var(--line-strong); border-radius: 12px; overflow: hidden;
+      background: var(--surface-2); box-shadow: 0 4px 0 var(--edge); line-height: 0;
+    }
+    #board { display: block; touch-action: none; user-select: none; -webkit-user-select: none; }
+    #board:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; }
+    .veil {
+      position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+      padding: 16px; text-align: center; line-height: 1.5; background: color-mix(in srgb, var(--surface) 90%, transparent);
+    }
+    .veil[hidden] { display: none; }
+    .veil strong { display: block; color: var(--text); font-size: 1.25rem; font-weight: 900; letter-spacing: -.02em; }
+    .veil span { display: block; color: var(--text-2); font-size: .92rem; font-weight: 600; word-break: keep-all; }
+    .side { flex: none; width: 96px; display: flex; flex-direction: column; gap: 8px; }
+    .panel {
+      display: block; width: 100%; padding: 4px 6px 8px; border: 2px solid var(--border); border-radius: 14px;
+      background: var(--surface); color: inherit; font: inherit; text-align: center; line-height: 0;
+    }
+    .panel .label { display: block; font-size: .78rem; font-weight: 700; color: var(--muted); line-height: 1.7; }
+    .panel canvas { display: inline-block; }
+    button.panel { cursor: pointer; box-shadow: 0 3px 0 var(--edge); touch-action: manipulation; }
+    button.panel:active { transform: translateY(3px); box-shadow: 0 0 0 var(--edge); }
+    button.panel:disabled { cursor: default; opacity: .6; }
+    button.panel:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+    .side .btn { width: 100%; padding-left: 4px; padding-right: 4px; font-size: .88rem; }
+    .pad {
+      display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; width: min(100%, 420px); margin: 12px auto 0;
+      user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+    }
+    .pad .btn {
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+      min-height: 56px; padding: 4px 2px; font-size: 1.25rem; line-height: 1.1; touch-action: none;
+    }
+    .pad .btn small { font-size: .68rem; font-weight: 700; color: inherit; opacity: .85; }
+    @media (pointer: fine) and (min-width: 700px) { .hint .touch-only { display: none; } }
+  </style>
+  <script defer src="../assets/pwa.js?v=0cec2e9a"></script>
+  <meta name="google-site-verification" content="2lnyP3t2mmgP6Hsc38QsWGOAUdmU66fPzzFMIPpKUXg">
+  <meta name="naver-site-verification" content="4a9de818bb77014dd34e900997181b35793a5cd3">
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9717375299017347" crossorigin="anonymous"></script>
+</head>
+<body data-game="blocks">
+  <header class="site-header">
+    <a class="back" href="../">← 게임 목록</a>
+    <h1>🧱 블록 쌓기</h1>
+    <span class="spacer"></span>
+  </header>
+  <main class="game">
+    <div class="statbar">
+      <div class="stat"><span class="label">점수</span><span class="value" id="score">0</span></div>
+      <div class="stat"><span class="label">지운 줄</span><span class="value" id="lines">0</span></div>
+      <div class="stat"><span class="label">레벨</span><span class="value" id="level">1</span></div>
+      <div class="stat"><span class="label">최고 점수</span><span class="value" id="best">0</span></div>
+    </div>
+    <div class="stage" id="stage">
+      <div class="well" id="well">
+        <canvas id="board" tabindex="0" role="img" aria-label="블록 쌓기 게임판. 가로 10칸, 세로 20칸"></canvas>
+        <div class="veil" id="veil">
+          <p><strong id="veilTitle">블록 쌓기</strong><span id="veilText">블록을 돌리고 옮겨서 가로줄을 빈틈없이 채우면 지워져요.</span></p>
+          <button type="button" class="btn primary big" id="veilBtn">시작하기</button>
+        </div>
+      </div>
+      <aside class="side" aria-label="보관과 다음 블록">
+        <button type="button" class="panel" id="holdBtn" aria-label="지금 블록 보관하기" disabled><span class="label">보관</span><canvas id="holdCv"></canvas></button>
+        <div class="panel"><span class="label">다음</span><canvas id="nextCv" role="img" aria-label="다음 블록"></canvas></div>
+        <button type="button" class="btn" id="pauseBtn" disabled>일시정지</button>
+        <button type="button" class="btn" id="newBtn">새 게임</button>
+      </aside>
+    </div>
+    <div class="pad" id="pad">
+      <button type="button" class="btn" data-act="left" aria-label="왼쪽으로">◀<small>왼쪽</small></button>
+      <button type="button" class="btn" data-act="right" aria-label="오른쪽으로">▶<small>오른쪽</small></button>
+      <button type="button" class="btn" data-act="soft" aria-label="아래로 천천히">▼<small>아래</small></button>
+      <button type="button" class="btn" data-act="rotate" aria-label="돌리기">↻<small>회전</small></button>
+      <button type="button" class="btn primary" data-act="drop" aria-label="바로 내리기">⬇<small>바로</small></button>
+    </div>
+    <p class="hint"><span class="touch-only">게임판을 좌우로 밀면 이동, 톡 누르면 회전, 아래로 빠르게 쓸면 바로 내려요.<br></span>키보드는 ← → 이동, ↑ 회전, ↓ 천천히 내리기, 스페이스 바로 내리기, C 보관, P 일시정지예요.</p>
+    <p class="sr-only" id="live" aria-live="polite"></p>
+  </main>
+
+<script src="../assets/common.js?v=8c4620cf"></script>
+<script src="logic.js?v=1a705f74"></script>
+<script>
+(function () {
+  'use strict';
+  var L = window.BlocksLogic, W = L.W, H = L.H;
+  var $ = function (id) { return document.getElementById(id); };
+  var board = $('board'), ctx = board.getContext('2d'), well = $('well'), pad = $('pad');
+  var veil = $('veil'), veilTitle = $('veilTitle'), veilText = $('veilText'), veilBtn = $('veilBtn');
+  var holdBtn = $('holdBtn'), holdCv = $('holdCv'), nextCv = $('nextCv'), pauseBtn = $('pauseBtn'), live = $('live');
+  var scoreEl = $('score'), linesEl = $('lines'), levelEl = $('level'), bestEl = $('best');
+  // Own palette; shape tells the pieces apart, color is only a helper.
+  var COLORS = { I: '#e8615a', O: '#2aa198', T: '#e0a030', S: '#8b6fd6', Z: '#3d8bd9', J: '#5aa846', L: '#d9609f' };
+  var LOCK_MS = 500, MAX_RESETS = 12, FLASH_MS = 150, SOFT_MS = 45, MINI = 16;
+  var reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+  var state = null, mode = 'ready';           // ready | playing | paused | over
+  var cell = 24, dpr = 1, nextCount = 3, theme = {};
+  var dropAcc = 0, lockTimer = 0, lockResets = 0, soft = false, clearUntil = 0, last = 0;
+  var best = MG.store.get('blocks.best', 0);
+  bestEl.textContent = best;
+
+  /* ---------- drawing ---------- */
+  function readTheme() {
+    var cs = getComputedStyle(document.body);
+    theme = { well: cs.getPropertyValue('--surface-2').trim() || '#eef0f6', line: cs.getPropertyValue('--border').trim() || '#d8dbe6' };
+  }
+  function rr(c, x, y, w, h, r) {
+    c.beginPath();
+    if (c.roundRect) c.roundRect(x, y, w, h, r); else c.rect(x, y, w, h);
+  }
+  // A block is a darker base with a raised face, like the site's press-down buttons.
+  function block(c, px, py, size, color, alpha) {
+    var r = size * 0.2, lip = Math.max(2, Math.round(size * 0.14));
+    c.globalAlpha = alpha || 1;
+    c.fillStyle = color; rr(c, px + 1, py + 1, size - 2, size - 2, r); c.fill();
+    c.fillStyle = 'rgba(0,0,0,.28)'; rr(c, px + 1, py + 1, size - 2, size - 2, r); c.fill();
+    c.fillStyle = color; rr(c, px + 1, py + 1, size - 2, size - 2 - lip, r); c.fill();
+    c.fillStyle = 'rgba(255,255,255,.22)'; rr(c, px + 3, py + 3, size - 6, Math.max(2, size * 0.16), r / 2); c.fill();
+    c.globalAlpha = 1;
+  }
+  function draw() {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = theme.well; ctx.fillRect(0, 0, W * cell, H * cell);
+    ctx.strokeStyle = theme.line; ctx.globalAlpha = 0.55; ctx.lineWidth = 1; ctx.beginPath();
+    for (var x = 1; x < W; x++) { ctx.moveTo(x * cell + 0.5, 0); ctx.lineTo(x * cell + 0.5, H * cell); }
+    for (var y = 1; y < H; y++) { ctx.moveTo(0, y * cell + 0.5); ctx.lineTo(W * cell, y * cell + 0.5); }
+    ctx.stroke(); ctx.globalAlpha = 1;
+    if (!state) return;
+    for (y = 0; y < H; y++) for (x = 0; x < W; x++) if (state.grid[y][x]) block(ctx, x * cell, y * cell, cell, COLORS[state.grid[y][x]]);
+    if (state.clearing && state.clearing.length) {
+      ctx.fillStyle = 'rgba(255,255,255,.78)';
+      state.clearing.forEach(function (row) { ctx.fillRect(0, row * cell, W * cell, cell); });
+    }
+    if (state.piece) {
+      var p = state.piece, color = COLORS[p.t], gy = L.ghostY(state);
+      if (gy !== p.y) {
+        ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.globalAlpha = 0.75;
+        L.cells({ t: p.t, r: p.r, x: p.x, y: gy }).forEach(function (c) {
+          if (c[1] >= 0) { rr(ctx, c[0] * cell + 3, c[1] * cell + 3, cell - 6, cell - 6, cell * 0.16); ctx.stroke(); }
+        });
+        ctx.globalAlpha = 1;
+      }
+      L.cells(p).forEach(function (c) { if (c[1] >= 0) block(ctx, c[0] * cell, c[1] * cell, cell, color); });
+    }
+  }
+  function sizeCanvas(cv, w, h) {
+    cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+    cv.style.width = w + 'px'; cv.style.height = h + 'px';
+  }
+  function drawMini(cv, types, dim) {
+    var c = cv.getContext('2d'), slotH = MINI * 3, w = MINI * 4 + 8;
+    sizeCanvas(cv, w, slotH * Math.max(1, types.length));
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    types.forEach(function (t, i) {
+      if (!t) return;
+      var cells = L.SHAPES[t].rots[0], xs = cells.map(function (q) { return q[0]; }), ys = cells.map(function (q) { return q[1]; });
+      var minX = Math.min.apply(null, xs), minY = Math.min.apply(null, ys);
+      var bw = (Math.max.apply(null, xs) - minX + 1) * MINI, bh = (Math.max.apply(null, ys) - minY + 1) * MINI;
+      var ox = (w - bw) / 2, oy = i * slotH + (slotH - bh) / 2;
+      cells.forEach(function (q) { block(c, ox + (q[0] - minX) * MINI, oy + (q[1] - minY) * MINI, MINI, COLORS[t], dim ? 0.4 : 1); });
+    });
+  }
+  function drawSide() {
+    drawMini(nextCv, state ? state.queue.slice(0, nextCount) : new Array(nextCount).fill(null));
+    drawMini(holdCv, [state ? state.hold : null], state && !state.canHold);
+    var names = state ? state.queue.slice(0, nextCount).join(', ') : '';
+    nextCv.setAttribute('aria-label', '다음 블록' + (names ? ' ' + names : ''));
+    holdBtn.disabled = mode !== 'playing' || !state.canHold;
+    holdBtn.setAttribute('aria-label', '지금 블록 보관하기' + (state && state.hold ? ', 보관 중 ' + state.hold : ''));
+  }
+  function layout() {
+    dpr = Math.min(window.devicePixelRatio || 1, 3);
+    var stageW = $('stage').clientWidth, top = well.getBoundingClientRect().top + window.scrollY;
+    var availH = window.innerHeight - top - pad.offsetHeight - 30;
+    cell = Math.max(12, Math.min(34, Math.floor(Math.min((stageW - 96 - 8 - 6) / W, availH / H))));
+    nextCount = cell < 20 ? 2 : 3;
+    sizeCanvas(board, W * cell, H * cell);
+    readTheme(); draw(); drawSide();
+  }
+
+  /* ---------- game flow ---------- */
+  function say(text) { live.textContent = ''; live.textContent = text; }
+  function saveBest() { if (state && state.score > best) { best = state.score; MG.store.set('blocks.best', best); } }
+  function stats() {
+    scoreEl.textContent = state ? state.score : 0; linesEl.textContent = state ? state.lines : 0; levelEl.textContent = state ? state.level : 1;
+    bestEl.textContent = Math.max(best, state ? state.score : 0);
+  }
+  function showVeil(title, text, button) {
+    veilTitle.textContent = title; veilText.textContent = text; veilBtn.textContent = button; veil.hidden = false;
+  }
+  function setMode(next) {
+    mode = next;
+    pauseBtn.disabled = mode !== 'playing' && mode !== 'paused';
+    pauseBtn.textContent = mode === 'paused' ? '계속하기' : '일시정지';
+    if (mode === 'playing') { veil.hidden = true; last = performance.now(); MG.wake && MG.wake.on && MG.wake.on(); }
+    else { soft = false; stopRepeat(); MG.wake && MG.wake.off && MG.wake.off(); }
+    drawSide();
+  }
+  function resetPiece() { dropAcc = 0; lockTimer = 0; lockResets = 0; }
+  function start() {
+    state = L.create(Math.random); resetPiece(); stats(); setMode('playing'); draw();
+    board.focus({ preventScroll: true });
+  }
+  function pause() {
+    if (mode !== 'playing') return;
+    saveBest(); setMode('paused'); showVeil('일시정지', '잠깐 쉬어 가요.', '계속하기');
+  }
+  function resume() { if (mode === 'paused') { setMode('playing'); board.focus({ preventScroll: true }); } }
+  function gameOver() {
+    var record = state.score > best && state.score > 0;
+    saveBest(); stats(); setMode('over'); draw();
+    showVeil(record ? '최고 기록이에요!' : '게임 끝', '점수 ' + state.score + '점, 지운 줄 ' + state.lines + '줄', '다시 하기');
+    say('게임 끝. 점수 ' + state.score + '점');
+  }
+  function finishClear() {
+    var level = state.level, n = L.settle(state);
+    resetPiece(); stats(); drawSide();
+    if (n) say(n + '줄 지움' + (state.level > level ? ', 레벨 ' + state.level : ''));
+    if (state.over) gameOver();
+  }
+  function afterLock(rows) {
+    stats();
+    if (state.over) { gameOver(); return; }
+    if (rows.length && !reduced.matches) clearUntil = performance.now() + FLASH_MS; else finishClear();
+  }
+  // A successful move while resting on something restarts the lock timer, a limited number of times per piece.
+  function nudged() { if (L.grounded(state) && lockResets < MAX_RESETS) { lockTimer = 0; lockResets++; } }
+  function act(name) {
+    if (mode !== 'playing' || state.clearing) return;
+    if (name === 'left') { if (L.move(state, -1)) nudged(); }
+    else if (name === 'right') { if (L.move(state, 1)) nudged(); }
+    else if (name === 'rotate') { if (L.rotate(state, 1)) nudged(); }
+    else if (name === 'rotateBack') { if (L.rotate(state, -1)) nudged(); }
+    else if (name === 'step') { if (L.down(state, true)) { dropAcc = 0; stats(); } }
+    else if (name === 'drop') { var rows = L.hardDrop(state); if (rows) afterLock(rows); }
+    else if (name === 'hold') { if (L.hold(state)) { resetPiece(); drawSide(); if (state.over) gameOver(); } }
+    draw();
+  }
+  function frame(ts) {
+    requestAnimationFrame(frame);
+    var dt = Math.min(ts - last, 100); last = ts;
+    if (mode !== 'playing') return;
+    if (state.clearing) { if (ts >= clearUntil) { finishClear(); draw(); } return; }
+    if (L.grounded(state)) {
+      dropAcc = 0; lockTimer += dt;
+      if (lockTimer >= LOCK_MS) afterLock(L.lock(state));
+    } else {
+      lockTimer = 0; dropAcc += dt;
+      var every = soft ? Math.min(SOFT_MS, L.interval(state.level)) : L.interval(state.level), moved = false;
+      while (dropAcc >= every && L.down(state, soft)) { dropAcc -= every; moved = true; }
+      if (moved && soft) stats();
+    }
+    draw();
+  }
+
+  /* ---------- input: keyboard ---------- */
+  var KEYS = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'rotate', x: 'rotate', X: 'rotate', z: 'rotateBack', Z: 'rotateBack',
+    ' ': 'drop', c: 'hold', C: 'hold', Shift: 'hold' };
+  document.addEventListener('keydown', function (e) {
+    if (e.ctrlKey || e.metaKey || e.altKey || document.querySelector('.overlay.show')) return;
+    if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') { if (mode === 'playing') pause(); else if (e.key !== 'Escape') resume(); return; }
+    if (mode !== 'playing') return;
+    if (e.target.closest && e.target.closest('button, a') && (e.key === ' ' || e.key === 'Enter')) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); soft = true; return; }
+    var name = KEYS[e.key];
+    if (!name) return;
+    e.preventDefault();
+    if (e.repeat && (name === 'drop' || name === 'hold' || name === 'rotate' || name === 'rotateBack')) return;
+    act(name);
+  });
+  document.addEventListener('keyup', function (e) { if (e.key === 'ArrowDown') soft = false; });
+
+  /* ---------- input: on-screen pad (hold to repeat) ---------- */
+  var repeatDelay = null, repeatTick = null;
+  function stopRepeat() { clearTimeout(repeatDelay); clearInterval(repeatTick); repeatDelay = repeatTick = null; }
+  pad.addEventListener('pointerdown', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    e.preventDefault();
+    var name = b.dataset.act;
+    if (name === 'soft') { soft = true; act('step'); return; }
+    act(name);
+    if (name === 'left' || name === 'right') {
+      stopRepeat();
+      repeatDelay = setTimeout(function () { repeatTick = setInterval(function () { act(name); }, 55); }, 180);
+    }
+  });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (type) {
+    pad.addEventListener(type, function () { stopRepeat(); soft = false; }, true);
+  });
+  pad.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+  // Keyboard and switch users activate pad buttons with a click that has no pointer press before it.
+  pad.addEventListener('click', function (e) {
+    var b = e.target.closest('button');
+    if (b && e.detail === 0) act(b.dataset.act === 'soft' ? 'step' : b.dataset.act);
+  });
+
+  /* ---------- input: gestures on the board ---------- */
+  var drag = null;
+  board.addEventListener('pointerdown', function (e) {
+    if (mode !== 'playing') return;
+    try { board.setPointerCapture(e.pointerId); } catch (err) { /* older browsers */ }
+    drag = { x: e.clientX, y: e.clientY, t: performance.now(), cols: 0, rows: 0, moved: false };
+  });
+  board.addEventListener('pointermove', function (e) {
+    if (!drag) return;
+    var cols = Math.trunc((e.clientX - drag.x) / cell), rows = Math.floor((e.clientY - drag.y) / cell);
+    while (drag.cols < cols) { act('right'); drag.cols++; drag.moved = true; }
+    while (drag.cols > cols) { act('left'); drag.cols--; drag.moved = true; }
+    while (drag.rows < rows) { act('step'); drag.rows++; drag.moved = true; }
+  });
+  board.addEventListener('pointerup', function (e) {
+    if (!drag) return;
+    var dx = e.clientX - drag.x, dy = e.clientY - drag.y, dt = performance.now() - drag.t, d = drag;
+    drag = null;
+    if (!d.moved && Math.abs(dx) < 10 && Math.abs(dy) < 10 && dt < 350) act('rotate');
+    else if (dy > cell * 2.5 && dt < 260 && Math.abs(dx) < dy) act('drop');
+  });
+  board.addEventListener('pointercancel', function () { drag = null; });
+
+  /* ---------- buttons and page events ---------- */
+  veilBtn.addEventListener('click', function () { if (mode === 'paused') resume(); else start(); });
+  pauseBtn.addEventListener('click', function () { if (mode === 'playing') pause(); else resume(); });
+  holdBtn.addEventListener('click', function () { act('hold'); board.focus({ preventScroll: true }); });
+  $('newBtn').addEventListener('click', function () {
+    if (mode !== 'playing' && mode !== 'paused') { start(); return; }
+    pause();
+    MG.dialog({ title: '새 게임을 시작할까요?', text: '지금 하던 판은 여기서 끝나요.',
+      buttons: [{ label: '새 게임', primary: true, onClick: start }, { label: '이어서 하기' }] });
+  });
+  document.addEventListener('visibilitychange', function () { if (document.hidden) pause(); });
+  window.addEventListener('blur', pause);
+  window.addEventListener('pagehide', saveBest);
+  window.addEventListener('resize', layout);
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () { readTheme(); draw(); });
+
+  window.BlocksGame = { start: start, act: act, pause: pause, resume: resume, state: function () { return state; }, mode: function () { return mode; } };
+  layout();
+  requestAnimationFrame(frame);
+})();
+</script>
+<script data-goatcounter="https://mini-games.goatcounter.com/count"
+        async src="//gc.zgo.at/count.js"></script>
+</body>
+</html>

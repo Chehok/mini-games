@@ -29,6 +29,7 @@
 | 슬라이드 퍼즐 `slide` | `#0f766e` | 주차장 탈출 `parking-jam` | `#c62828` |
 | 카드 짝맞추기 `memory` | `#be185d` | 꼬인 줄 풀기 `untangle` | `#a21caf` |
 | 워들 `wordle` | `#6d28d9` | 초성 퀴즈 `chosung` | `#a15c07` |
+| 블록 쌓기 `blocks` | `#4d7c0f` | | |
 
 새 게임을 만들면 `assets/style.css`의 게임 색 목록에 한 줄 추가하고, 허브 카드에도 같은 `data-game`을 달아요.
 

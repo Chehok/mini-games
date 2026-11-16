@@ -4,10 +4,10 @@ const vm = require('vm');
 const assert = require('assert/strict');
 function read(p) { return fs.readFileSync(p, 'utf8'); }
 function inline(p) { return [...read(p).matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].map(m=>m[1]).filter(Boolean).join('\n'); }
-for (const dir of ['sudoku','minesweeper','2048','memory','slide-puzzle','wordle','chosung','puzzles','pin-pull','water-sort','screw-puzzle','parking-jam','untangle']) {
+for (const dir of ['sudoku','minesweeper','2048','blocks','memory','slide-puzzle','wordle','chosung','puzzles','pin-pull','water-sort','screw-puzzle','parking-jam','untangle']) {
   new vm.Script(inline(dir+'/index.html'), {filename: dir+'/index.html'});
 }
-for (const p of ['assets/common.js','chosung/words.js','wordle/words.js']) new vm.Script(read(p), {filename:p});
+for (const p of ['assets/common.js','blocks/logic.js','chosung/words.js','wordle/words.js']) new vm.Script(read(p), {filename:p});
 const ctx = {window:{}};
 let seed = 12345;
 function rnd() { seed = (Math.imul(seed,1664525)+1013904223)>>>0; return seed/4294967296; }
@@ -28,6 +28,39 @@ for(const [p,name,field,sep] of [
 }
 console.log('PASS: syntax, tags, content');
 console.log('Wordle words:',answers.length);
+
+// 블록 쌓기: piece shapes, walls, line clears and scoring, hold, top-out, speed curve.
+{
+ const c={window:{}};vm.runInNewContext(read('blocks/logic.js'),c);const B=c.window.BlocksLogic;
+ let sd=42;const r=()=>{sd=(Math.imul(sd,1664525)+1013904223)>>>0;return sd/4294967296;};
+ for(const t of B.TYPES) for(const rot of B.SHAPES[t].rots){assert.equal(rot.length,4,t+' has four cells');assert.equal(new Set(rot.map(String)).size,4);}
+ let s=B.create(r);
+ assert.equal(new Set(s.queue.slice(0,6).concat(s.piece.t)).size,7,'first seven pieces are all different');
+ for(let i=0;i<20;i++)B.move(s,-1);assert(B.cells(s.piece).every(q=>q[0]>=0),'left wall');assert(!B.move(s,-1));
+ for(let i=0;i<20;i++)B.move(s,1);assert(B.cells(s.piece).every(q=>q[0]<B.W),'right wall');
+ for(let i=0;i<8;i++){assert(B.rotate(s,1),'turns next to a wall');assert(!B.collides(s.grid,s.piece));}
+ // A row with one gap, filled by an upright I piece: one line, 100 points at level 1 plus 2 per dropped row.
+ s=B.create(r);s.grid[19]=[1,1,1,1,1,1,1,1,1,0].map(v=>v?'J':0);s.piece={t:'I',r:1,x:7,y:0};
+ const before=s.piece.y,gy=B.ghostY(s),rows=B.hardDrop(s);
+ assert.deepEqual([...rows],[19]);assert(!B.move(s,1)&&!B.rotate(s,1)&&!B.hold(s),'no input while a line is clearing');
+ assert.equal(B.settle(s),1);assert.equal(s.lines,1);assert.equal(s.score,100+2*(gy-before));
+ assert.equal(s.grid[19].filter(Boolean).length,1,'the rest of the I piece moved down');assert(s.piece&&!s.over);
+ // Four lines at once score 800 × level; ten lines raise the level.
+ s=B.create(r);s.lines=8;for(let y=16;y<20;y++)s.grid[y]=[1,1,1,1,1,1,1,1,1,0].map(v=>v?'L':0);s.piece={t:'I',r:1,x:7,y:0};
+ const d4=B.ghostY(s);B.hardDrop(s);assert.equal(B.settle(s),4);assert.equal(s.score,800+2*d4);assert.equal(s.lines,12);assert.equal(s.level,2);
+ assert(s.grid.every(row=>row.every(v=>!v)),'board is empty after the clear');
+ // Hold swaps once per piece.
+ s=B.create(r);const first=s.piece.t,second=s.queue[0];assert(B.hold(s));assert.equal(s.hold,first);assert.equal(s.piece.t,second);assert(!B.hold(s));
+ B.hardDrop(s);B.settle(s);const third=s.piece.t;assert(B.hold(s));assert.equal(s.piece.t,first);assert.equal(s.hold,third);
+ // Gravity stops on the floor; stacking one column ends the game.
+ s=B.create(r);let fell=0;while(B.down(s))fell++;assert(fell>0&&B.grounded(s));assert.equal(s.score,0,'gravity alone gives no points');
+ s=B.create(r);let n=0;while(!s.over&&n++<60){B.hardDrop(s);if(s.clearing)B.settle(s);}assert(s.over&&n<30,'top-out ends the game');
+ assert.equal(B.interval(1),800);for(let l=1;l<30;l++)assert(B.interval(l+1)<=B.interval(l)&&B.interval(l)>=70);
+ // Random play never leaves the board in a broken shape.
+ for(let g=0;g<40;g++){s=B.create(r);let k=0;while(!s.over&&k++<400){for(let i=Math.floor(r()*4);i>0;i--)B.rotate(s,1);const dx=Math.floor(r()*11)-5;for(let i=0;i<Math.abs(dx);i++)B.move(s,Math.sign(dx));if(r()<.1)B.hold(s);if(s.over)break;B.hardDrop(s);if(s.clearing)B.settle(s);
+  assert.equal(s.grid.length,B.H);assert(s.grid.every(row=>row.length===B.W&&!row.every(Boolean)));}}
+ console.log('PASS: blocks shapes, walls, clears and scoring, hold, top-out, speed curve');
+}
 
 // Isolated DOM/timer harness: execute the real page scripts and advance old callbacks after reset.
 function game(file, exports, initial={}) {

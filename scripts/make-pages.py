@@ -64,6 +64,7 @@ ABOUT='''    <p class="doc-lead">미니게임은 설치나 회원가입 없이 �
     <ul>
       <li><a href="../sudoku/">스도쿠</a> — 쉬움·보통·어려움, 메모 기능</li>
       <li><a href="../2048/">2048</a> — 같은 숫자를 밀어 합치기</li>
+      <li><a href="../blocks/">블록 쌓기</a> — 떨어지는 블록으로 가로줄 지우기, 보관과 다음 블록 미리 보기</li>
       <li><a href="../minesweeper/">지뢰찾기</a> — 초급·중급·고급, 휴대폰용 깃발 모드</li>
       <li><a href="../slide-puzzle/">슬라이드 퍼즐</a> — 3×3부터 5×5까지</li>
       <li><a href="../memory/">카드 짝맞추기</a> — 세 가지 판 크기</li>
@@ -115,6 +116,8 @@ GUIDE='''    <p class="doc-lead">게임마다 화면에 짧은 안내가 있지�
       <dd>가로줄, 세로줄, 굵은 선의 3×3 칸 안에 1부터 9까지 숫자가 한 번씩만 들어가게 채워요. <strong>메모</strong>를 켜면 후보 숫자를 작게 적어 둘 수 있어요. 키보드에서는 숫자 입력, 방향키 이동, N 메모, Backspace 지우기예요.</dd>
       <dt><a href="../2048/">🧮 2048</a></dt>
       <dd>방향키·WASD 또는 화면을 밀면 모든 타일이 그쪽으로 움직여요. 같은 숫자가 부딪히면 합쳐져요. 2048 타일을 만들면 성공이고, 그 뒤로도 계속할 수 있어요. 모서리 하나에 큰 숫자를 모으면 유리해요.</dd>
+      <dt><a href="../blocks/">🧱 블록 쌓기</a></dt>
+      <dd>위에서 떨어지는 블록을 좌우로 옮기고 돌려서 가로줄을 빈틈없이 채우면 그 줄이 지워져요. 한 번에 여러 줄을 지울수록 점수가 커지고, 10줄마다 레벨이 올라 더 빨리 떨어져요. 블록이 맨 위까지 쌓이면 끝나요. <strong>보관</strong> 칸을 누르면 지금 블록을 넣어 두었다가 나중에 꺼낼 수 있어요. 휴대폰에서는 게임판을 밀어 옮기고, 톡 눌러 돌리고, 아래로 빠르게 쓸어 바로 내려요.</dd>
       <dt><a href="../minesweeper/">💣 지뢰찾기</a></dt>
       <dd>칸의 숫자는 주변 8칸에 있는 지뢰 수예요. 지뢰가 확실한 칸에는 깃발을 꽂아요(PC 오른쪽 클릭, 휴대폰은 길게 누르기 또는 깃발 모드). 깃발 수가 맞는 숫자 칸을 두 번 누르면 주변을 한꺼번에 열어요.</dd>
       <dt><a href="../slide-puzzle/">🧩 슬라이드 퍼즐</a></dt>
@@ -261,7 +264,7 @@ open(f'{ROOT}/404.html','w').write(NF+'''  <main class="doc doc-center">
     <p class="doc-note">모임용 게임(몸으로 말해요, 라이어 게임 등)은 <a href="https://recreation-cmx.pages.dev/">레크리에이션</a>으로 옮겼어요.</p>
   </main>
 '''+foot('/',''))
-pages=['', 'puzzles/','sudoku/','2048/','minesweeper/','slide-puzzle/','memory/','wordle/','chosung/','pin-pull/','water-sort/','screw-puzzle/','parking-jam/','untangle/','about/','guide/','contact/','privacy/']
+pages=['', 'puzzles/','sudoku/','2048/','blocks/','minesweeper/','slide-puzzle/','memory/','wordle/','chosung/','pin-pull/','water-sort/','screw-puzzle/','parking-jam/','untangle/','about/','guide/','contact/','privacy/']
 open(f'{ROOT}/sitemap.xml','w').write('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'+''.join(f'  <url><loc>{SITE}{p}</loc><lastmod>2026-11-14</lastmod></url>\n' for p in pages)+'</urlset>\n')
 open(f'{ROOT}/robots.txt','w').write(f'User-agent: *\nAllow: /\n\nSitemap: {SITE}sitemap.xml\n')
 print('ok')

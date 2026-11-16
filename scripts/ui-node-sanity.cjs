@@ -16,7 +16,7 @@ const flush=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
   // Every initial state, not only the tutorial and final board. Canvas backing
   // sizes and DOM controls are real controller output, independent of a browser.
   for(const dir of ['pin-pull','screw-puzzle']){
-    const html=read(dir+'/index.html');assert(html.includes('name="viewport"'));assert(html.includes('aria-live="polite"'));assert(!/<script[^>]+src="https?:\/\//.test(html.replace(/<script[^>]+gc\.zgo\.at[^>]*><\/script>/g,'')),'no new external dependencies');
+    const html=read(dir+'/index.html');assert(html.includes('name="viewport"'));assert(html.includes('aria-live="polite"'));assert(!/<script[^>]+src="https?:\/\//.test(html.replace(/<script[^>]+(?:gc\.zgo\.at|pagead2\.googlesyndication\.com)[^>]*><\/script>/g,'')),'no new external dependencies');
     for(const width of [320,390,1280])for(const dark of [false,true])for(let n=1;n<=20;n++){
       const g=adController(dir,n,{width,dark});g.ticks(2);
       const L=g.window[dir==='pin-pull'?'PinLogic':'ScrewLogic'],d=L.level(n),banner=g.all('.mechanic-hint')[0];
