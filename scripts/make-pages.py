@@ -168,9 +168,15 @@ CONTACT='''    <p class="doc-lead">오류 제보, 게임 아이디어, 단어·�
 
     <h2>문의하는 방법</h2>
     <div class="doc-card">
+      <h3>이메일</h3>
+      <p>가장 편한 방법이에요. 계정 없이 보낼 수 있어요.</p>
+      <p><a class="btn primary" href="mailto:dev.chehok@gmail.com?subject=%5B%EB%AF%B8%EB%8B%88%EA%B2%8C%EC%9E%84%5D%20%EB%AC%B8%EC%9D%98">dev.chehok@gmail.com</a></p>
+      <p class="doc-note">보내 주신 이메일 주소는 답장에만 쓰고, 다른 곳에 쓰거나 넘기지 않아요.</p>
+    </div>
+    <div class="doc-card">
       <h3>GitHub 이슈</h3>
       <p>이 사이트의 소스 코드가 공개된 GitHub 저장소에 글을 남겨 주세요. 진행 상황을 함께 볼 수 있어요. GitHub 계정이 필요해요.</p>
-      <p><a class="btn primary" href="https://github.com/Chehok/mini-games/issues/new" rel="noopener">GitHub에 문의 남기기</a></p>
+      <p><a class="btn" href="https://github.com/Chehok/mini-games/issues/new" rel="noopener">GitHub에 문의 남기기</a></p>
       <p class="doc-note">이슈는 누구나 볼 수 있는 공개 글이에요. 이름·연락처 같은 개인정보는 적지 말아 주세요.</p>
     </div>
 
@@ -235,10 +241,10 @@ PRIVACY=f'''    <p class="doc-lead">미니게임(이하 "사이트")은 운영�
     <p>사이트는 청소년도 함께 쓰는 곳이라, 선정적이거나 폭력적인 광고가 나오지 않도록 애드센스의 광고 차단 설정을 사용해요. 운영자는 아동의 개인정보를 받지 않아요.</p>
 
     <h2>8. 이용자의 권리</h2>
-    <p>운영자가 보관하는 개인정보가 없어 열람·정정·삭제를 요청할 대상이 없어요. 기기에 저장된 정보와 쿠키는 이용자가 브라우저 설정에서 직접 지우거나 막을 수 있어요.</p>
+    <p>문의 이메일 외에는 운영자가 보관하는 개인정보가 없어요. 기기에 저장된 정보와 쿠키는 이용자가 브라우저 설정에서 직접 지우거나 막을 수 있어요.</p>
 
     <h2>9. 문의처</h2>
-    <p>개인정보와 관련한 문의는 <a href="../contact/">문의</a> 페이지로 보내 주세요. 개인정보 침해에 대한 상담이 필요하면 아래 기관에 문의할 수 있어요.</p>
+    <p>개인정보와 관련한 문의는 이메일 <a href="mailto:dev.chehok@gmail.com">dev.chehok@gmail.com</a>이나 <a href="../contact/">문의</a> 페이지로 보내 주세요. 문의로 받은 이메일 주소는 답장에만 쓰고, 답변이 끝나면 보관하지 않아요. 개인정보 침해에 대한 상담이 필요하면 아래 기관에 문의할 수 있어요.</p>
     <ul>
       <li>개인정보침해신고센터 (국번 없이) 118 · privacy.kisa.or.kr</li>
       <li>개인정보분쟁조정위원회 1833-6972 · kopico.go.kr</li>
