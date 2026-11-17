@@ -73,4 +73,4 @@
 
 ## 7. 관련 프로젝트
 
-- **Icebreaker**(대화 주제 & 밸런스 게임)는 별도 저장소 <https://github.com/Chehok/icebreaker>에서 따로 관리해요. 이 허브에는 <https://chehok.github.io/icebreaker/>로 가는 링크 카드만 있어요. 이 저장소에서 Icebreaker 코드를 고치지 않아요.
+- **Icebreaker**(대화 주제 & 밸런스 게임)는 별도 저장소 <https://github.com/Chehok/icebreaker>에서 따로 관리해요. 이 허브에는 <https://icebreaker-de4.pages.dev/>로 가는 링크 카드만 있어요. 이 저장소에서 Icebreaker 코드를 고치지 않아요.
